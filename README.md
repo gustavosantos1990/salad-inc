@@ -65,7 +65,7 @@ The VMs/components I want to include are:
 **DNS Strategy (Dual-Entry Pattern):**
 - **Service Names (UI)** → Point to Nginx (Edge Gateway)
   - `gitlab.salad.local` → 192.168.123.30
-  - `artifactory.salad.local` → 192.168.123.30
+  - `nexus.salad.local` → 192.168.123.30
   - `lam.salad.local` → 192.168.123.30
   - `grafana.salad.local` → 192.168.123.30
   - `keycloak.salad.local` → 192.168.123.30
@@ -107,7 +107,7 @@ Backend Service (actual VM)
 - Pipeline stages: Build → Test → Quality Gates → Package → Push
 
 **Artifact Storage:**
-- **Nexus CE** (`artifactory.salad.local`) stores build artifacts
+- **Nexus CE** (`nexus.salad.local`) stores build artifacts
   - **Docker Registry**: Container images built by GitLab CI (push via `registry-push.salad.local`, pull via `registry.salad.local`)
   - **Maven Repository**: Java artifacts + proxy to Maven Central
 - GitLab pushes images to Nexus after successful builds
@@ -207,7 +207,7 @@ Given the 32 GB RAM capacity, the infrastructure uses a **hybrid approach** with
 | 192.168.123.10 | dns.salad.local | dnsmasq | Alpine | 1 | 256 MB | 2 GB |
 | 192.168.123.20 | repository.salad.local | GitLab + CI/CD | Debian | 2 | 6 GB | 20 GB |
 | 192.168.123.21 | database.salad.local | PostgreSQL | Debian | 2 | 1 GB | 20 GB |
-| 192.168.123.23 | artifactory.salad.local | Sonatype Nexus CE (Maven + Docker) | Debian | 2 | 3 GB | 20 GB |
+| 192.168.123.23 | nexus.salad.local | Sonatype Nexus CE (Maven + Docker) | Debian | 2 | 3 GB | 20 GB |
 | 192.168.123.22 | containerization.salad.local    | Docker + Traefik + Portainer | Debian | 2 | 2 GB | 30 GB |
 | 192.168.123.30 | proxy.salad.local | Nginx | Alpine | 1 | 512 MB | 5 GB |
 | 192.168.123.31 | monitor.salad.local | Monitoring (Prometheus/Grafana) | Debian | 2 | 1.5 GB | 15 GB |

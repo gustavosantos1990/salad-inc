@@ -475,8 +475,8 @@ Each service that integrates with Keycloak needs a **client** configuration.
 
 1.  Create client with **Client ID**: `artifactory`
 2.  **Client authentication**: `ON`
-3.  **Valid redirect URIs**: `https://artifactory.salad.local/ui/login`
-4.  **Web origins**: `https://artifactory.salad.local`
+3.  **Valid redirect URIs**: `https://nexus.salad.local/ui/login`
+4.  **Web origins**: `https://nexus.salad.local`
 5.  Add mappers for `groups` and `roles`.
 
 ### 11.5. Prometheus Client (Optional)

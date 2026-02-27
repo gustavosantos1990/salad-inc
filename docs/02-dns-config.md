@@ -185,7 +185,7 @@ Once you have finished `setup-alpine` and rebooted into the fresh system, log in
     
     # Services (→ Nginx for SSL termination)
     address=/gitlab.salad.local/192.168.123.30
-    address=/artifactory.salad.local/192.168.123.30
+    address=/nexus.salad.local/192.168.123.30
     address=/lam.salad.local/192.168.123.30
     address=/grafana.salad.local/192.168.123.30
     address=/keycloak.salad.local/192.168.123.30

@@ -48,7 +48,7 @@ We define a network named `salad-net` with the CIDR `192.168.123.0/24`. We use d
     </host>
     <host ip='192.168.123.23'>
       <hostname>artifactory</hostname>
-      <hostname>artifactory.salad.local</hostname>
+      <hostname>nexus.salad.local</hostname>
     </host>
     <host ip='192.168.123.30'>
       <hostname>proxy</hostname>

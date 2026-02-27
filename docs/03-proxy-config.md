@@ -296,13 +296,13 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     # Artifactory
     server {
         listen 80;
-        server_name artifactory.salad.local;
+        server_name nexus.salad.local;
         return 301 https://$server_name$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name artifactory.salad.local;
+        server_name nexus.salad.local;
 
         ssl_certificate /etc/nginx/ssl/salad.local.crt;
         ssl_certificate_key /etc/nginx/ssl/salad.local.key;

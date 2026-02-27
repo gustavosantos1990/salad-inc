@@ -206,7 +206,7 @@ Each service has a client in Keycloak:
 | `gitlab` | GitLab | `https://gitlab.salad.local/users/auth/openid_connect/callback` |
 | `grafana` | Grafana | `https://grafana.salad.local/login/generic_oauth` |
 | `portainer` | Portainer | `https://portainer.salad.local/*` |
-| `artifactory` | Artifactory | `https://artifactory.salad.local/ui/login` |
+| `nexus` | Nexus | `https://nexus.salad.local/ui/login` |
 | `prometheus` | Prometheus (via OAuth2 Proxy) | `https://prometheus.salad.local/oauth2/callback` |
 | `traefik` | Traefik (via OAuth2 Proxy) | `https://traefik.salad.local/oauth2/callback` |
 | `lam` | LAM | `https://lam.salad.local/*` |

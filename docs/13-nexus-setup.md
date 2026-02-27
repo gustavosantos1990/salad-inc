@@ -129,7 +129,7 @@ Nexus is distributed as a self-contained tarball — no package manager required
 ### 6.1. Download and Extract
 
 ```bash
-NEXUS_VERSION="3.77.0-09"
+NEXUS_VERSION="3.77.0-08"
 wget -q "https://download.sonatype.com/nexus/3/nexus-${NEXUS_VERSION}-unix.tar.gz" -O /tmp/nexus.tar.gz
 tar -xzf /tmp/nexus.tar.gz -C /opt
 mv /opt/nexus-${NEXUS_VERSION} /opt/nexus
@@ -152,23 +152,15 @@ echo 'run_as_user="nexus"' > /opt/nexus/bin/nexus.rc
 
 ### 6.4. Configure JVM Memory
 
-Edit `/opt/nexus/bin/nexus.vmoptions` — replace the default heap settings:
+The default `nexus.vmoptions` ships with required `--add-opens` flags for Java 17 module access. **Do not replace the file** — append our custom settings on top of the defaults:
 
 ```bash
-cat > /opt/nexus/bin/nexus.vmoptions << 'EOF'
+cat >> /opt/nexus/bin/nexus.vmoptions << 'EOF'
+
+# Custom: tuned for 3 GB VM
 -Xms512m
 -Xmx1536m
 -XX:MaxDirectMemorySize=512m
--XX:+UseG1GC
--XX:MaxGCPauseMillis=200
--XX:+ParallelRefProcEnabled
--XX:+HeapDumpOnOutOfMemoryError
--XX:HeapDumpPath=/opt/nexus-data/log
--Djava.net.preferIPv4Stack=true
--Dkaraf.home=.
--Dkaraf.base=.
--Dkaraf.etc=etc/karaf
--Djava.util.logging.config.file=etc/karaf/java.util.logging.properties
 -Dkaraf.data=/opt/nexus-data
 -Dkaraf.log=/opt/nexus-data/log
 -Djava.io.tmpdir=/opt/nexus-data/tmp
@@ -176,16 +168,27 @@ EOF
 ```
 
 > **Memory budget for a 3 GB VM:** 1536m heap + 512m direct memory ≈ 2 GB for Nexus, leaving ~1 GB for the OS and kernel buffers.
+>
+> ⚠️ **Do not use `cat >`** (overwrite) here — the default vmoptions contains `--add-opens` flags required by Apache Felix/Karaf on Java 17. Removing them causes an `InaccessibleObjectException` crash at startup.
 
 ### 6.5. Configure External PostgreSQL
 
 Edit `/opt/nexus-data/etc/nexus.properties` (create if it doesn't exist yet — Nexus creates it on first start, so start once, stop, then edit):
 
 ```bash
-# First start to generate config files, then stop immediately
-/opt/nexus/bin/nexus start
-sleep 20
-/opt/nexus/bin/nexus stop
+# First start to generate config files
+# Nexus 3.77 takes 2-4 minutes before nexus-data/etc/ is written
+su - nexus -s /bin/bash -c "/opt/nexus/bin/nexus start"
+
+# Watch karaf.log — nexus.log doesn't appear until fully started
+tail -f /opt/nexus-data/log/karaf.log
+# Wait until you see: "nexus/bundles" activity settles, then Ctrl+C
+
+# Verify nexus-data/etc/ was created
+ls /opt/nexus-data/etc/
+
+# Then stop
+su - nexus -s /bin/bash -c "/opt/nexus/bin/nexus stop"
 sleep 10
 ```
 
@@ -233,8 +236,14 @@ systemctl enable --now nexus
 
 ### 6.7. Monitor Startup
 
-Nexus takes **2–4 minutes** to fully start. Monitor the log:
+Nexus takes **2–4 minutes** to fully start. Monitor startup progress in two phases:
 
+**Phase 1 — early boot** (before nexus.log exists, use karaf.log):
+```bash
+tail -f /opt/nexus-data/log/karaf.log
+```
+
+**Phase 2 — once nexus.log appears**, switch to it:
 ```bash
 tail -f /opt/nexus-data/log/nexus.log
 ```
@@ -297,9 +306,11 @@ Nexus CE supports LDAP natively. Configure it to authenticate against `ldap.sala
    - **User email attribute:** `mail`
    - **Group base DN:** `ou=groups`
    - **Group object class:** `groupOfNames`
+   - **Group type:** `Static` *(groups use explicit `member` DN attributes, not dynamic URL filters)*
    - **Group ID attribute:** `cn`
    - **Group member attribute:** `member`
    - **Group member format:** `${dn}`
+   - **Map LDAP groups as roles:** ✅ enabled *(maps each LDAP group to a Nexus role so you can assign privileges to them)*
 6. Click **Verify user mapping** → confirm your LDAP users appear.
 7. Click **Save**.
 
@@ -417,7 +428,7 @@ Add the following blocks to `services.conf` on the proxy VM. Nexus needs three v
 # --- Nexus UI + Maven ---
 server {
     listen 443 ssl;
-    server_name artifactory.salad.local;
+    server_name nexus.salad.local;
 
     ssl_certificate /etc/nginx/ssl/salad.local.crt;
     ssl_certificate_key /etc/nginx/ssl/salad.local.key;
@@ -437,7 +448,7 @@ server {
 
 server {
     listen 80;
-    server_name artifactory.salad.local;
+    server_name nexus.salad.local;
     return 301 https://$host$request_uri;
 }
 
@@ -513,7 +524,7 @@ echo "address=/registry.salad.local/192.168.123.30" >> /etc/dnsmasq.conf
 service dnsmasq restart
 ```
 
-> `artifactory.salad.local` DNS entry already points to `192.168.123.30` (Nginx) — no change needed.
+> `nexus.salad.local` DNS entry already points to `192.168.123.30` (Nginx) — no change needed.
 
 ---
 
@@ -534,7 +545,7 @@ Create `.mvn/settings.xml` in the project:
     <mirror>
       <id>nexus</id>
       <mirrorOf>*</mirrorOf>
-      <url>https://artifactory.salad.local/repository/maven-group/</url>
+      <url>https://nexus.salad.local/repository/maven-group/</url>
     </mirror>
   </mirrors>
   <profiles>
@@ -543,7 +554,7 @@ Create `.mvn/settings.xml` in the project:
       <repositories>
         <repository>
           <id>nexus</id>
-          <url>https://artifactory.salad.local/repository/maven-group/</url>
+          <url>https://nexus.salad.local/repository/maven-group/</url>
           <releases><enabled>true</enabled></releases>
           <snapshots><enabled>false</enabled></snapshots>
         </repository>
@@ -619,13 +630,13 @@ From your host machine:
 
 1. **Nexus UI:**
    ```bash
-   curl -k https://artifactory.salad.local/service/rest/v1/status
+   curl -k https://nexus.salad.local/service/rest/v1/status
    ```
    Expected: HTTP 200
 
 2. **Maven repository accessible:**
    ```bash
-   curl -k -u admin:<password> https://artifactory.salad.local/repository/maven-group/
+   curl -k -u admin:<password> https://nexus.salad.local/repository/maven-group/
    ```
 
 3. **Docker push (CI → hosted):**
