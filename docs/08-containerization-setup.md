@@ -1,6 +1,6 @@
 # 08 - Provisioning Containerization Host (Docker Swarm + Traefik + Portainer)
 
-We will provision the **Containerization** VM (`containerization.salad.local`). This is a **Debian 12** instance that serves as our primary Docker Swarm application node. It will run:
+We will provision the **Containerization** VM (`containerization.salad.com`). This is a **Debian 12** instance that serves as our primary Docker Swarm application node. It will run:
 *   **Docker Swarm**: For orchestration.
 *   **Traefik**: As the ingress controller/router for Swarm services.
 *   **Portainer**: For easy container management via UI.
@@ -51,8 +51,8 @@ virt-viewer --connect qemu:///system --wait containerization
 ```
 
 ### Installation Pointers
-1.  **Hostname:** `containerization.salad.local`
-2.  **Domain:** `salad.local`
+1.  **Hostname:** `containerization.salad.com`
+2.  **Domain:** `salad.com`
 3.  **Partitioning:** Standard / (Root).
 4.  **Software Selection:**
     *   [X] SSH server
@@ -89,7 +89,7 @@ vi /etc/hosts
 Change from:
 ```
 127.0.0.1       localhost
-127.0.1.1       containerization.salad.local  containerization
+127.0.1.1       containerization.salad.com  containerization
 ```
 To:
 ```
@@ -104,7 +104,7 @@ systemctl enable --now serial-getty@ttyS0.service
 
 *To connect via serial console from host:*
 ```bash
-virsh console containerization
+sudo virsh console containerization
 ```
 *(Press Enter to see the login prompt. Use `Ctrl+]` to exit).*
 
@@ -248,7 +248,7 @@ mkdir -p /opt/stacks/portainer
 cd /opt/stacks/portainer
 ```
 
-Create `portainer.yml`. This configuration uses Traefik labels so we can access it via `portainer.salad.local`.
+Create `portainer.yml`. This configuration uses Traefik labels so we can access it via `portainer.salad.com`.
 
 ```yaml
 version: '3.2'
@@ -312,12 +312,14 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     extra_hosts:
-      - "database.salad.local:192.168.123.21"
+      - "database.salad.com:192.168.123.21"
     environment:
-      PGADMIN_DEFAULT_EMAIL: "admin@salad.local"
+      PGADMIN_DEFAULT_EMAIL: "admin@salad.com"
       PGADMIN_DEFAULT_PASSWORD: "admin"
     ports:
       - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
     networks:
       - traefik-public
     deploy:
@@ -327,6 +329,9 @@ services:
 networks:
   traefik-public:
     external: true
+
+volumes:
+  pgadmin_data:
 ```
 
 Deploy the stack:
@@ -336,7 +341,7 @@ docker stack deploy -c pgadmin.yml pgadmin
 
 ## 8. Update Nginx Proxy (On Proxy VM)
 
-For `portainer.salad.local` to work, we need to add a rule on the Nginx VM (`proxy.salad.local`).
+For `portainer.salad.com` to work, we need to add a rule on the Nginx VM (`proxy.salad.com`).
 
 1. SSH into Proxy VM (`192.168.123.30`).
 2. Edit `/etc/nginx/conf.d/services.conf`.
@@ -346,19 +351,19 @@ For `portainer.salad.local` to work, we need to add a rule on the Nginx VM (`pro
 # Portainer
 server {
     listen 80;
-    server_name portainer.salad.local;
+    server_name portainer.salad.com;
     return 301 https://$server_name$request_uri;
 }
 
 server {
     listen 443 ssl;
-    server_name portainer.salad.local;
+    server_name portainer.salad.com;
 
-    ssl_certificate /etc/nginx/ssl/salad.local.crt;
-    ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+    ssl_certificate /etc/nginx/ssl/salad.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
     location / {
-        proxy_pass http://containerization.salad.local:9000;
+        proxy_pass http://containerization.salad.com:9000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -378,7 +383,7 @@ server {
 
 From your host machine:
 
-1.  **Ping**: `ping -c 2 containerization.salad.local` (Should return 192.168.123.22).
-2.  **Access Portainer**: Open `https://portainer.salad.local`.
+1.  **Ping**: `ping -c 2 containerization.salad.com` (Should return 192.168.123.22).
+2.  **Access Portainer**: Open `https://portainer.salad.com`.
     *   Create the admin user.
     *   Connect to the "local" environment (via Agent).

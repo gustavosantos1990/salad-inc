@@ -15,7 +15,7 @@ The infrastructure consists of multiple VMs running on QEMU/KVM, connected via a
 - Centralized monitoring (Prometheus/Grafana) and logging (Loki)
 
 **Key Data Flows:**
-- Development: Developer → Proxy → Repository → Docker Host → Artifactory
+- Development: Developer → Proxy → Repository → Docker Host → Nexus CE
 - Observability: All services → Prometheus (metrics) & Loki (logs)
 - Security: Nginx (SSL termination) + SSO/SAML (Keycloak)
 
@@ -48,49 +48,49 @@ The VMs/components I want to include are:
 ### Identity & Access Management
 
 **User Directory (Single Source of Truth):**
-- **OpenLDAP** (`ldap.salad.local`) stores all company users, groups, and email addresses
+- **OpenLDAP** (`ldap.salad.com`) stores all company users, groups, and email addresses
 - Provides LDAP protocol access for services that need to query user data
 
 **Identity Provider (SSO Gateway):**
-- **Keycloak** (`sso.salad.local`) federates with OpenLDAP for user authentication
+- **Keycloak** (`sso.salad.com`) federates with OpenLDAP for user authentication
 - Provides modern SSO protocols (OIDC/SAML) to applications
-- All services with SSO support (GitLab, Artifactory, etc.) consume Keycloak
+- All services with SSO support (GitLab, Nexus CE, etc.) consume Keycloak
 
 **Email Integration:**
-- **Postfix** (`mail.salad.local`) queries OpenLDAP to validate email addresses
+- **Postfix** (`mail.salad.com`) queries OpenLDAP to validate email addresses
 - Ensures only valid company users can send/receive mail
 
 ### Network & Security Architecture
 
 **DNS Strategy (Dual-Entry Pattern):**
 - **Service Names (UI)** → Point to Nginx (Edge Gateway)
-  - `gitlab.salad.local` → 192.168.123.30
-  - `nexus.salad.local` → 192.168.123.30
-  - `lam.salad.local` → 192.168.123.30
-  - `grafana.salad.local` → 192.168.123.30
-  - `keycloak.salad.local` → 192.168.123.30
-  - `portainer.salad.local` → 192.168.123.30
+  - `gitlab.salad.com` → 192.168.123.30
+  - `nexus.salad.com` → 192.168.123.30
+  - `lam.salad.com` → 192.168.123.30
+  - `grafana.salad.com` → 192.168.123.30
+  - `keycloak.salad.com` → 192.168.123.30
+  - `portainer.salad.com` → 192.168.123.30
 - **VM Names (Infrastructure)** → Point to actual VMs
-  - `repository.salad.local` → 192.168.123.20
-  - `database.salad.local` → 192.168.123.21
-  - `containerization.salad.local` → 192.168.123.22
-  - `artifact-repository.salad.local` → 192.168.123.23
-  - `monitor.salad.local` → 192.168.123.31
-  - `sso.salad.local` → 192.168.123.41
-  - `mail.salad.local` → 192.168.123.45
-  - `ldap.salad.local` → 192.168.123.46
+  - `repository.salad.com` → 192.168.123.20
+  - `database.salad.com` → 192.168.123.21
+  - `containerization.salad.com` → 192.168.123.22
+  - `artifact-repository.salad.com` → 192.168.123.23
+  - `monitor.salad.com` → 192.168.123.31
+  - `sso.salad.com` → 192.168.123.41
+  - `mail.salad.com` → 192.168.123.45
+  - `ldap.salad.com` → 192.168.123.46
 
 **SSL/TLS Termination:**
-- **Nginx** (`proxy.salad.local`) acts as the edge gateway
-- Handles SSL termination using self-signed wildcard certificate (`*.salad.local`)
+- **Nginx** (`proxy.salad.com`) acts as the edge gateway
+- Handles SSL termination using self-signed wildcard certificate (`*.salad.com`)
 - Internal traffic between VMs uses HTTP (simpler, faster)
-- Pattern: `https://service.salad.local` (Nginx) → `http://service-vm.salad.local:port` (Backend)
+- Pattern: `https://service.salad.com` (Nginx) → `http://service-vm.salad.com:port` (Backend)
 
 **Proxy Chain:**
 ```
 User Browser
     ↓ HTTPS
-Nginx (proxy.salad.local) - SSL Termination
+Nginx (proxy.salad.com) - SSL Termination
     ↓ HTTP
 Backend Service (actual VM)
 ```
@@ -98,34 +98,34 @@ Backend Service (actual VM)
 ### CI/CD Pipeline Architecture
 
 **Source Control:**
-- **GitLab** (`repository.salad.local`) hosts all application code
+- **GitLab** (`repository.salad.com`) hosts all application code
 - Developers push code, triggering CI/CD pipelines
 
 **Build & Test:**
-- **GitLab Runners** (on `containerization.salad.local`) execute pipeline jobs
+- **GitLab Runners** (on `containerization.salad.com`) execute pipeline jobs
 - Runners are containerized for isolation and scalability
 - Pipeline stages: Build → Test → Quality Gates → Package → Push
 
 **Artifact Storage:**
-- **Nexus CE** (`nexus.salad.local`) stores build artifacts
-  - **Docker Registry**: Container images built by GitLab CI (push via `registry-push.salad.local`, pull via `registry.salad.local`)
+- **Nexus CE** (`nexus.salad.com`) stores build artifacts
+  - **Docker Registry**: Container images built by GitLab CI (push via `registry-push.salad.com`, pull via `registry.salad.com`)
   - **Maven Repository**: Java artifacts + proxy to Maven Central
 - GitLab pushes images to Nexus after successful builds
 
 **Deployment:**
-- **Docker Swarm** (on `containerization.salad.local`) orchestrates containers
+- **Docker Swarm** (on `containerization.salad.com`) orchestrates containers
   - Enables container replicas for high availability
   - Pulls images from Nexus CE
-- **Traefik** (on `containerization.salad.local`) provides:
+- **Traefik** (on `containerization.salad.com`) provides:
   - Dynamic service discovery (auto-detects containers)
   - Internal load balancing across replicas
   - HTTP routing based on container labels
 
 **Application Access Pattern:**
 ```
-User Request: https://myapp.salad.local
+User Request: https://myapp.salad.com
     ↓
-Nginx (SSL termination, routes *.salad.local)
+Nginx (SSL termination, routes *.salad.com)
     ↓ HTTP
 Traefik (dynamic routing, load balancing)
     ↓
@@ -153,7 +153,7 @@ Code Push → Build → Unit Tests → Code Quality (SonarQube)
 | Service | Integrates With | Purpose |
 |---------|----------------|---------|
 | **OpenLDAP** | Keycloak, Postfix | User directory |
-| **Keycloak** | GitLab, Artifactory, Grafana, Portainer | SSO authentication |
+| **Keycloak** | GitLab, Nexus CE, Grafana, Portainer | SSO authentication |
 | **GitLab** | Nexus CE, Docker (Runners) | CI/CD orchestration |
 | **Nexus CE** | GitLab, Docker Swarm | Artifact storage (Maven + Docker) |
 | **Docker** | GitLab, Nexus CE, Traefik | Container runtime |
@@ -204,16 +204,16 @@ Given the 32 GB RAM capacity, the infrastructure uses a **hybrid approach** with
 
 | IP | Hostname | Service | OS | vCPU | RAM | Disk |
 |----|----------|---------|----|----|-----|------|
-| 192.168.123.10 | dns.salad.local | dnsmasq | Alpine | 1 | 256 MB | 2 GB |
-| 192.168.123.20 | repository.salad.local | GitLab + CI/CD | Debian | 2 | 6 GB | 20 GB |
-| 192.168.123.21 | database.salad.local | PostgreSQL | Debian | 2 | 1 GB | 20 GB |
-| 192.168.123.23 | nexus.salad.local | Sonatype Nexus CE (Maven + Docker) | Debian | 2 | 3 GB | 20 GB |
-| 192.168.123.22 | containerization.salad.local    | Docker + Traefik + Portainer | Debian | 2 | 2 GB | 30 GB |
-| 192.168.123.30 | proxy.salad.local | Nginx | Alpine | 1 | 512 MB | 5 GB |
-| 192.168.123.31 | monitor.salad.local | Monitoring (Prometheus/Grafana) | Debian | 2 | 1.5 GB | 15 GB |
-| 192.168.123.41 | sso.salad.local | SSO/SAML (Keycloak) | Debian | 2 | 2 GB | 10 GB |
-| 192.168.123.45 | mail.salad.local | SMTP/IMAP (Postfix) | Alpine | 1 | 256 MB | 2 GB |
-| 192.168.123.46 | ldap.salad.local | OpenLDAP + LAM | Debian | 1 | 512 MB | 5 GB |
+| 192.168.123.10 | dns.salad.com | dnsmasq | Alpine | 1 | 256 MB | 2 GB |
+| 192.168.123.20 | repository.salad.com | GitLab + CI/CD | Debian | 2 | 6 GB | 20 GB |
+| 192.168.123.21 | database.salad.com | PostgreSQL | Debian | 2 | 1 GB | 20 GB |
+| 192.168.123.23 | nexus.salad.com | Sonatype Nexus CE (Maven + Docker) | Debian | 2 | 3 GB | 20 GB |
+| 192.168.123.22 | containerization.salad.com    | Docker + Traefik + Portainer | Debian | 2 | 2 GB | 30 GB |
+| 192.168.123.30 | proxy.salad.com | Nginx | Alpine | 1 | 512 MB | 5 GB |
+| 192.168.123.31 | monitor.salad.com | Monitoring (Prometheus/Grafana) | Debian | 2 | 1.5 GB | 15 GB |
+| 192.168.123.41 | sso.salad.com | SSO/SAML (Keycloak) | Debian | 2 | 2 GB | 10 GB |
+| 192.168.123.45 | mail.salad.com | SMTP/IMAP (Postfix) | Alpine | 1 | 256 MB | 2 GB |
+| 192.168.123.46 | ldap.salad.com | OpenLDAP + LAM | Debian | 1 | 512 MB | 5 GB |
 
 ### Resource Summary
 

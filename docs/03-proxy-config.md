@@ -1,6 +1,6 @@
 # 03 - Provisioning Nginx Proxy
 
-In this step, we provision the **Proxy** VM (`proxy.salad.local`). This Alpine Linux instance runs Nginx as an edge gateway, handling SSL termination and reverse proxying to backend services.
+In this step, we provision the **Proxy** VM (`proxy.salad.com`). This Alpine Linux instance runs Nginx as an edge gateway, handling SSL termination and reverse proxying to backend services.
 
 ## 1. VM Directory Structure
 
@@ -48,7 +48,7 @@ Follow the `setup-alpine` prompts:
 
 1. **Keyboard Layout:** `br` (Brazilian)
 2. **Keyboard Variant:** `br` (or press Enter for default)
-3. **Hostname:** `proxy.salad.local`
+3. **Hostname:** `proxy.salad.com`
 4. **Interface:** `eth0`
 5. **IP Address:** `dhcp`
 6. **Do you want to do any manual network configuration?** `no`
@@ -124,11 +124,7 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     Turn off swap:
     ```bash
     swapoff -a
-    ```
-    ```bash
     sed -i '/swap/d' /etc/fstab
-    ```
-    ```bash
     free -h
     ```
 
@@ -141,7 +137,7 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
 
     Change the first line from:
     ```
-    127.0.0.1   proxy.salad.local proxy localhost.localdomain localhost
+    127.0.0.1   proxy.salad.com proxy localhost.localdomain localhost
     ```
 
     To:
@@ -149,7 +145,7 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     127.0.0.1   localhost localhost.localdomain
     ```
 
-    This ensures that `proxy.salad.local` is resolved by DNS (to `192.168.123.30`) rather than by the local hosts file.
+    This ensures that `proxy.salad.com` is resolved by DNS (to `192.168.123.30`) rather than by the local hosts file.
 
 5.  **Generate Self-Signed SSL Certificate:**
 
@@ -158,20 +154,20 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     mkdir -p /etc/nginx/ssl
     ```
 
-    Generate wildcard certificate for `*.salad.local`:
+    Generate wildcard certificate for `*.salad.com` and `*.app.salad.com` with Subject Alternative Name (SAN) and CA extensions:
     ```bash
     openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-      -keyout /etc/nginx/ssl/salad.local.key \
-      -out /etc/nginx/ssl/salad.local.crt \
-      -subj "/C=BR/ST=SP/L=SaoPaulo/O=Salad Inc/CN=*.salad.local"
+      -keyout /etc/nginx/ssl/salad.com.key \
+      -out /etc/nginx/ssl/salad.com.crt \
+      -subj "/C=BR/ST=SP/L=SaoPaulo/O=Salad Inc/CN=*.salad.com" \
+      -addext "subjectAltName = DNS:*.salad.com,DNS:salad.com,DNS:*.app.salad.com" \
+      -addext "basicConstraints=critical,CA:TRUE"
     ```
 
     Set permissions:
     ```bash
-    chmod 600 /etc/nginx/ssl/salad.local.key
-    ```
-    ```bash
-    chmod 644 /etc/nginx/ssl/salad.local.crt
+    chmod 600 /etc/nginx/ssl/salad.com.key
+    chmod 644 /etc/nginx/ssl/salad.com.crt
     ```
 
 6.  **Configure Nginx:**
@@ -238,8 +234,8 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
         listen [::]:443 ssl default_server;
         server_name _;
 
-        ssl_certificate /etc/nginx/ssl/salad.local.crt;
-        ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+        ssl_certificate /etc/nginx/ssl/salad.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         location / {
             return 404;
@@ -258,21 +254,21 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     # GitLab
     server {
         listen 80;
-        server_name gitlab.salad.local;
+        server_name gitlab.salad.com;
         return 301 https://$server_name$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name gitlab.salad.local;
+        server_name gitlab.salad.com;
 
-        ssl_certificate /etc/nginx/ssl/salad.local.crt;
-        ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+        ssl_certificate /etc/nginx/ssl/salad.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         location / {
             # Use variable to force runtime DNS resolution
             # This allows Nginx to start even if backend VM is down
-            set $backend_gitlab repository.salad.local:80;
+            set $backend_gitlab repository.salad.com:80;
             
             proxy_pass http://$backend_gitlab;
             proxy_set_header Host $host;
@@ -296,22 +292,22 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     # Artifactory
     server {
         listen 80;
-        server_name nexus.salad.local;
+        server_name nexus.salad.com;
         return 301 https://$server_name$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name nexus.salad.local;
+        server_name nexus.salad.com;
 
-        ssl_certificate /etc/nginx/ssl/salad.local.crt;
-        ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+        ssl_certificate /etc/nginx/ssl/salad.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         client_max_body_size 0;
         chunked_transfer_encoding on;
 
         location / {
-            set $backend_artifactory artifact-repository.salad.local:8082;
+            set $backend_artifactory artifact-repository.salad.com:8082;
             proxy_pass http://$backend_artifactory;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -323,19 +319,19 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     # Grafana
     server {
         listen 80;
-        server_name grafana.salad.local;
+        server_name grafana.salad.com;
         return 301 https://$server_name$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name grafana.salad.local;
+        server_name grafana.salad.com;
 
-        ssl_certificate /etc/nginx/ssl/salad.local.crt;
-        ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+        ssl_certificate /etc/nginx/ssl/salad.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         location / {
-            set $backend_grafana monitor.salad.local:3000;
+            set $backend_grafana monitor.salad.com:3000;
             proxy_pass http://$backend_grafana;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -347,19 +343,19 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     # Keycloak
     server {
         listen 80;
-        server_name keycloak.salad.local;
+        server_name keycloak.salad.com;
         return 301 https://$server_name$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name keycloak.salad.local;
+        server_name keycloak.salad.com;
 
-        ssl_certificate /etc/nginx/ssl/salad.local.crt;
-        ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+        ssl_certificate /etc/nginx/ssl/salad.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         location / {
-            set $backend_keycloak sso.salad.local:8080;
+            set $backend_keycloak sso.salad.com:8080;
             proxy_pass http://$backend_keycloak;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -375,25 +371,25 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     # LDAP Account Manager
     server {
         listen 80;
-        server_name lam.salad.local;
+        server_name lam.salad.com;
         return 301 https://$server_name$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name lam.salad.local;
+        server_name lam.salad.com;
 
-        ssl_certificate /etc/nginx/ssl/salad.local.crt;
-        ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+        ssl_certificate /etc/nginx/ssl/salad.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         # Redirect root to /lam to avoid confusing relative redirects
         location = / {
-            return 301 https://lam.salad.local/lam/;
+            return 301 https://lam.salad.com/lam/;
         }
 
         location / {
             # Construct full URL to preserve path structure
-            set $target_url http://ldap.salad.local$request_uri;
+            set $target_url http://ldap.salad.com$request_uri;
             proxy_pass $target_url;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -405,19 +401,19 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     # pgAdmin 4
     server {
         listen 80;
-        server_name pgadmin.salad.local;
+        server_name pgadmin.salad.com;
         return 301 https://$server_name$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name pgadmin.salad.local;
+        server_name pgadmin.salad.com;
 
-        ssl_certificate /etc/nginx/ssl/salad.local.crt;
-        ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+        ssl_certificate /etc/nginx/ssl/salad.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         location / {
-            set $backend_pgadmin containerization.salad.local:5050;
+            set $backend_pgadmin containerization.salad.com:5050;
             proxy_pass http://$backend_pgadmin;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -429,19 +425,19 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     # Portainer
     server {
         listen 80;
-        server_name portainer.salad.local;
+        server_name portainer.salad.com;
         return 301 https://$server_name$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name portainer.salad.local;
+        server_name portainer.salad.com;
 
-        ssl_certificate /etc/nginx/ssl/salad.local.crt;
-        ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+        ssl_certificate /etc/nginx/ssl/salad.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         location / {
-            set $backend_portainer containerization.salad.local:9000;
+            set $backend_portainer containerization.salad.com:9000;
             proxy_pass http://$backend_portainer;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -458,19 +454,19 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     # Traefik Dashboard
     server {
         listen 80;
-        server_name traefik.salad.local;
+        server_name traefik.salad.com;
         return 301 https://$server_name$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name traefik.salad.local;
+        server_name traefik.salad.com;
 
-        ssl_certificate /etc/nginx/ssl/salad.local.crt;
-        ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+        ssl_certificate /etc/nginx/ssl/salad.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         location / {
-            set $backend_traefik containerization.salad.local:8080;
+            set $backend_traefik containerization.salad.com:8080;
             proxy_pass http://$backend_traefik;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -487,19 +483,19 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     # Wildcard for dynamic applications (Traefik)
     server {
         listen 80;
-        server_name *.app.salad.local;
+        server_name *.app.salad.com;
         return 301 https://$host$request_uri;
     }
 
     server {
         listen 443 ssl;
-        server_name *.app.salad.local;
+        server_name *.app.salad.com;
 
-        ssl_certificate /etc/nginx/ssl/salad.local.crt;
-        ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+        ssl_certificate /etc/nginx/ssl/salad.com.crt;
+        ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         location / {
-            set $backend_traefik containerization.salad.local:80;
+            set $backend_traefik containerization.salad.com:80;
             proxy_pass http://$backend_traefik;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -558,22 +554,22 @@ From your host machine, test the proxy:
 
 Test HTTP to HTTPS redirect:
 ```bash
-curl -I http://proxy.salad.local
+curl -I http://proxy.salad.com
 ```
 
 Test SSL certificate (ignore self-signed warning):
 ```bash
-curl -k -I https://proxy.salad.local
+curl -k -I https://proxy.salad.com
 ```
 
 Test DNS resolution for service names:
 ```bash
-ping -c 1 gitlab.salad.local
+ping -c 1 gitlab.salad.com
 ```
 
 ## 8. Install SSL Certificate in Host Browser
 
-To avoid browser security warnings when accessing `*.salad.local` services, install the self-signed certificate as a trusted Certificate Authority.
+To avoid browser security warnings when accessing `*.salad.com` services, install the self-signed certificate as a trusted Certificate Authority.
 
 ### Copy Certificate from Proxy VM
 
@@ -583,14 +579,14 @@ From your host machine, copy the certificate (using the SSH key from infrastruct
 mkdir -p infrastructure/ssl
 ```
 ```bash
-scp -i infrastructure/ssh/salad_key root@192.168.123.30:/etc/nginx/ssl/salad.local.crt infrastructure/ssl/
+scp -i infrastructure/ssh/salad_key root@192.168.123.30:/etc/nginx/ssl/salad.com.crt infrastructure/ssl/
 ```
 
 **Note:** If you don't want to specify `-i` every time, you can create an SSH config file:
 
 ```bash
 cat >> ~/.ssh/config <<'EOF'
-Host *.salad.local 192.168.123.*
+Host *.salad.com 192.168.123.*
     User root
     IdentityFile ~/workspace/salad.inc/infrastructure/ssh/salad_key
     StrictHostKeyChecking accept-new
@@ -599,7 +595,7 @@ EOF
 
 Then you can use SCP without the `-i` flag:
 ```bash
-scp root@192.168.123.30:/etc/nginx/ssl/salad.local.crt infrastructure/ssl/
+scp root@192.168.123.30:/etc/nginx/ssl/salad.com.crt infrastructure/ssl/
 ```
 
 ### Install Certificate in Browser
@@ -610,7 +606,7 @@ scp root@192.168.123.30:/etc/nginx/ssl/salad.local.crt infrastructure/ssl/
 2. Scroll down to **Certificates** → Click **View Certificates**
 3. Go to the **Authorities** tab
 4. Click **Import...**
-5. Navigate to `~/workspace/salad.inc/infrastructure/ssl/salad.local.crt`
+5. Navigate to `~/workspace/salad.inc/infrastructure/ssl/salad.com.crt`
 6. Check **Trust this CA to identify websites**
 7. Click **OK**
 
@@ -620,7 +616,7 @@ scp root@192.168.123.30:/etc/nginx/ssl/salad.local.crt infrastructure/ssl/
 2. Scroll down to **Manage certificates**
 3. Go to the **Authorities** tab
 4. Click **Import**
-5. Navigate to `~/workspace/salad.inc/infrastructure/ssl/salad.local.crt`
+5. Navigate to `~/workspace/salad.inc/infrastructure/ssl/salad.com.crt`
 6. Check **Trust this certificate for identifying websites**
 7. Click **OK**
 
@@ -629,28 +625,28 @@ scp root@192.168.123.30:/etc/nginx/ssl/salad.local.crt infrastructure/ssl/
 Install the certificate system-wide so all applications trust it:
 
 ```bash
-sudo cp infrastructure/ssl/salad.local.crt /usr/local/share/ca-certificates/salad.local.crt
+sudo cp infrastructure/ssl/salad.com.crt /usr/local/share/ca-certificates/salad.com.crt
 ```
 ```bash
 sudo update-ca-certificates
 ```
 
-Verify the certificate was added:
+Verify the certificate was added (a symlink should exist):
 ```bash
-grep "salad.local" /etc/ssl/certs/ca-certificates.crt
+ls -l /etc/ssl/certs/salad.com.pem
 ```
 
 ### Verify Certificate Trust
 
 After installing the certificate, test in your browser:
 
-1. Navigate to `https://proxy.salad.local`
+1. Navigate to `https://proxy.salad.com`
 2. You should see a **secure connection** (lock icon) without warnings
 3. Click the lock icon to verify the certificate details
 
 You can also test with curl (without `-k` flag):
 ```bash
-curl -I https://proxy.salad.local
+curl -I https://proxy.salad.com
 ```
 
 This should work without the `--insecure` flag if the system-wide trust was configured.

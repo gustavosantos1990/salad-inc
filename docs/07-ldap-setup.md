@@ -1,6 +1,6 @@
 # 06 - Provisioning Directory Server (OpenLDAP + LAM)
 
-We will provision the **Directory** VM (`ldap.salad.local`). This is a lightweight **Debian 12** instance running **OpenLDAP** (for user management) and **LDAP Account Manager** (for a nice Web UI).
+We will provision the **Directory** VM (`ldap.salad.com`). This is a lightweight **Debian 12** instance running **OpenLDAP** (for user management) and **LDAP Account Manager** (for a nice Web UI).
 
 ## 1. Directory & Disk
 
@@ -31,8 +31,8 @@ sudo virt-install \
 ```
 
 ### Installation Pointers
-1.  **Hostname:** `ldap.salad.local`
-2.  **Domain:** `salad.local`
+1.  **Hostname:** `ldap.salad.com`
+2.  **Domain:** `salad.com`
 3.  **Partitioning:** Standard / (Root).
 4.  **Software Selection:**
     *   [X] SSH server
@@ -72,7 +72,7 @@ apt-get install -y slapd ldap-utils
 *During install, it might ask for an admin password. Remember it.*
 
 **Reconfigure Directory Domain**:
-By default it might pick up the wrong domain. Run this to enforce `salad.local`:
+By default it might pick up the wrong domain. Run this to enforce `salad.com`:
 
 ```bash
 dpkg-reconfigure slapd
@@ -80,7 +80,7 @@ dpkg-reconfigure slapd
 
 **Answers:**
 1.  Omit OpenLDAP server configuration? **No**
-2.  DNS domain name: **salad.local**
+2.  DNS domain name: **salad.com**
 3.  Organization name: **Salad Inc**
 4.  Administrator password: **(Set your password)**
 5.  Database backend: **MDB**
@@ -107,7 +107,7 @@ systemctl enable --now prometheus-node-exporter
 
 **LDAP (Lightweight Directory Access Protocol)** organizes data in a hierarchical tree structure. Here are the key components:
 
-- **dc (Domain Component)**: Represents parts of your domain name (e.g., `dc=salad,dc=local`)
+- **dc (Domain Component)**: Represents parts of your domain name (e.g., `dc=salad,dc=com`)
 - **ou (Organizational Unit)**: Containers to organize entries (e.g., `ou=people`, `ou=groups`)
 - **cn (Common Name)**: Identifies an entry (e.g., `cn=admin`, `cn=developers`)
 - **uid (User ID)**: Unique identifier for users (e.g., `uid=jdoe`)
@@ -122,7 +122,7 @@ We'll create a structure that supports:
 - **SSH Access Groups** for VM access control
 
 ```
-dc=salad,dc=local
+dc=salad,dc=com
 ├── ou=people                    # All users
 │   ├── ou=team-alpha           # Team Alpha members
 │   ├── ou=team-beta            # Team Beta members
@@ -177,13 +177,13 @@ We'll create sample users representing different roles and teams:
 
 | UID | Name | Team | Role | Email |
 |-----|------|------|------|-------|
-| `alice.dev` | Alice Developer | Team Alpha | Developer | alice.dev@salad.local |
-| `bob.senior` | Bob Senior | Team Alpha | Senior Developer | bob.senior@salad.local |
-| `charlie.dev` | Charlie Developer | Team Beta | Developer | charlie.dev@salad.local |
-| `diana.arch` | Diana Architect | Team Infra | Architect | diana.arch@salad.local |
-| `eve.manager` | Eve Manager | - | Manager | eve.manager@salad.local |
-| `frank.sre` | Frank SRE | Team Infra | SRE Engineer | frank.sre@salad.local |
-| `grace.sec` | Grace Security | Team Infra | Security Engineer | grace.sec@salad.local |
+| `alice.dev` | Alice Developer | Team Alpha | Developer | alice.dev@salad.com |
+| `bob.senior` | Bob Senior | Team Alpha | Senior Developer | bob.senior@salad.com |
+| `charlie.dev` | Charlie Developer | Team Beta | Developer | charlie.dev@salad.com |
+| `diana.arch` | Diana Architect | Team Infra | Architect | diana.arch@salad.com |
+| `eve.manager` | Eve Manager | - | Manager | eve.manager@salad.com |
+| `frank.sre` | Frank SRE | Team Infra | SRE Engineer | frank.sre@salad.com |
+| `grace.sec` | Grace Security | Team Infra | Security Engineer | grace.sec@salad.com |
 
 ## 5. Creating the LDAP Structure
 
@@ -192,15 +192,15 @@ We'll create sample users representing different roles and teams:
 From your **Host Machine**:
 
 1.  **Access the UI:**
-    Open `http://ldap.salad.local/lam` in your browser.
+    Open `http://ldap.salad.com/lam` in your browser.
 
 2.  **Login to LAM:**
     *   Click **"LAM configuration"** (top right) in the login page.
     *   Default password is `lam`.
     *   **Edit Server Profile:**
         *   Server address: `ldap://localhost:389`
-        *   Tree suffix: `dc=salad,dc=local`
-        *   Admin user: `cn=admin,dc=salad,dc=local`
+        *   Tree suffix: `dc=salad,dc=com`
+        *   Admin user: `cn=admin,dc=salad,dc=com`
     *   **Save**.
     *   Go back to login.
     *   Login with password set in Step 3.2.
@@ -211,14 +211,14 @@ During the `dpkg-reconfigure slapd` step, Debian's OpenLDAP package may automati
 
 **Check if they exist:**
 
-In LAM's Tree view, expand `dc=salad,dc=local` and look for `ou=People` and `ou=Groups`.
+In LAM's Tree view, expand `dc=salad,dc=com` and look for `ou=People` and `ou=Groups`.
 
 **If they exist, remove them from the LDAP VM:**
 
 ```bash
 # Delete the uppercase OUs (if they exist)
-ldapdelete -x -D "cn=admin,dc=salad,dc=local" -W "ou=People,dc=salad,dc=local"
-ldapdelete -x -D "cn=admin,dc=salad,dc=local" -W "ou=Groups,dc=salad,dc=local"
+ldapdelete -x -D "cn=admin,dc=salad,dc=com" -W "ou=People,dc=salad,dc=com"
+ldapdelete -x -D "cn=admin,dc=salad,dc=com" -W "ou=Groups,dc=salad,dc=com"
 ```
 
 Enter your LDAP admin password when prompted.
@@ -228,7 +228,7 @@ Enter your LDAP admin password when prompted.
 ### 5.3. Create Organizational Units
 
 1. Click **"Tree view"** in the top menu
-2. **Right-click** on `dc=salad,dc=local`
+2. **Right-click** on `dc=salad,dc=com`
 3. Click **"Create a child entry"** (or similar option from the context menu)
 4. Select **"Generic: Organizational Unit"**
 5. Create the following OUs (repeat for each):
@@ -237,14 +237,14 @@ Enter your LDAP admin password when prompted.
    - `ou=roles`
 
 6. Under `ou=people`, create team OUs:
-   - `ou=team-alpha,ou=people,dc=salad,dc=local`
-   - `ou=team-beta,ou=people,dc=salad,dc=local`
-   - `ou=team-infra,ou=people,dc=salad,dc=local`
+   - `ou=team-alpha,ou=people,dc=salad,dc=com`
+   - `ou=team-beta,ou=people,dc=salad,dc=com`
+   - `ou=team-infra,ou=people,dc=salad,dc=com`
 
 7. Under `ou=groups`, create sub-OUs:
-   - `ou=service-access,ou=groups,dc=salad,dc=local`
-   - `ou=ssh-access,ou=groups,dc=salad,dc=local`
-   - `ou=gitlab-access,ou=groups,dc=salad,dc=local`
+   - `ou=service-access,ou=groups,dc=salad,dc=com`
+   - `ou=ssh-access,ou=groups,dc=salad,dc=com`
+   - `ou=gitlab-access,ou=groups,dc=salad,dc=com`
 
 ### 5.4. Create Groups
 
@@ -260,7 +260,7 @@ We need to create two types of groups depending on their purpose:
 
 #### 5.4.1. Service Access Groups (Use **groupOfNames**)
 
-Navigate to `ou=service-access,ou=groups,dc=salad,dc=local`:
+Navigate to `ou=service-access,ou=groups,dc=salad,dc=com`:
 
 1. Right-click → **"Create a child entry"**
 2. Select **"Generic: groupOfNames"**
@@ -277,11 +277,11 @@ Navigate to `ou=service-access,ou=groups,dc=salad,dc=local`:
 - `cn=pgadmin-users`
 
 
-**Note:** When creating a `groupOfNames`, LAM requires at least one member. You can use a placeholder like `cn=placeholder,dc=salad,dc=local` initially, then remove it after adding real users.
+**Note:** When creating a `groupOfNames`, LAM requires at least one member. You can use a placeholder like `cn=placeholder,dc=salad,dc=com` initially, then remove it after adding real users.
 
 #### 5.4.2. SSH Access Groups (Use **POSIX Group**)
 
-Navigate to `ou=ssh-access,ou=groups,dc=salad,dc=local`:
+Navigate to `ou=ssh-access,ou=groups,dc=salad,dc=com`:
 
 1. Right-click → **"Create a child entry"**
 2. Select **"Generic: Posix Group"**
@@ -297,7 +297,7 @@ Navigate to `ou=ssh-access,ou=groups,dc=salad,dc=local`:
 
 #### 5.4.3. GitLab Access Groups (Use **groupOfNames**)
 
-Navigate to `ou=gitlab-access,ou=groups,dc=salad,dc=local`:
+Navigate to `ou=gitlab-access,ou=groups,dc=salad,dc=com`:
 
 1. Right-click → **"Create a child entry"**
 2. Select **"Generic: groupOfNames"**
@@ -310,7 +310,7 @@ Navigate to `ou=gitlab-access,ou=groups,dc=salad,dc=local`:
 
 #### 5.4.4. Role Groups (Use **groupOfNames**)
 
-Navigate to `ou=roles,dc=salad,dc=local`:
+Navigate to `ou=roles,dc=salad,dc=com`:
 
 1. Right-click → **"Create a child entry"**
 2. Select **"Generic: groupOfNames"**
@@ -329,7 +329,7 @@ Navigate to `ou=roles,dc=salad,dc=local`:
 For each user, navigate to their team OU and create a **"Generic: User Account"**:
 
 **Example: Alice Developer (Team Alpha)**
-- Navigate to `ou=team-alpha,ou=people,dc=salad,dc=local`
+- Navigate to `ou=team-alpha,ou=people,dc=salad,dc=com`
 - Right-click → **"Create a child entry"**
 - Select **"inetOrgPerson"**
 - Fill in:
@@ -337,7 +337,7 @@ For each user, navigate to their team OU and create a **"Generic: User Account"*
   - **First Name (givenName)**: `Alice`
   - **Last Name (sn)**: `Developer`
   - **Common Name (cn)**: `Alice Developer`
-  - **Email (mail)**: `alice.dev@salad.local`
+  - **Email (mail)**: `alice.dev@salad.com`
   - **Password**: Set a password
 
 **Adding users to groups:**
@@ -345,22 +345,22 @@ For each user, navigate to their team OU and create a **"Generic: User Account"*
 After creating the user, you need to add them to the appropriate groups. The method differs based on group type:
 
 - **For groupOfNames groups** (service-access, gitlab-access, roles):
-  - Navigate to the group (e.g., `cn=developers,ou=roles,dc=salad,dc=local`)
+  - Navigate to the group (e.g., `cn=developers,ou=roles,dc=salad,dc=com`)
   - Edit the group and add the user's **full DN** to the `member` attribute
-  - Example: `uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=local`
+  - Example: `uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=com`
 
 - **For POSIX groups** (ssh-access):
-  - Navigate to the group (e.g., `cn=ssh-developers,ou=ssh-access,ou=groups,dc=salad,dc=local`)
+  - Navigate to the group (e.g., `cn=ssh-developers,ou=ssh-access,ou=groups,dc=salad,dc=com`)
   - Edit the group and add the user's **username only** to the `memberUid` attribute
   - Example: `alice.dev`
 
 **Groups for Alice Developer:**
-  - `cn=developers,ou=roles,dc=salad,dc=local` (groupOfNames)
-  - `cn=gitlab-users,ou=service-access,ou=groups,dc=salad,dc=local` (groupOfNames)
-  - `cn=grafana-users,ou=service-access,ou=groups,dc=salad,dc=local` (groupOfNames)
-  - `cn=artifactory-users,ou=service-access,ou=groups,dc=salad,dc=local` (groupOfNames)
-  - `cn=ssh-developers,ou=ssh-access,ou=groups,dc=salad,dc=local` (POSIX)
-  - `cn=gitlab-team-alpha,ou=gitlab-access,ou=groups,dc=salad,dc=local` (groupOfNames)
+  - `cn=developers,ou=roles,dc=salad,dc=com` (groupOfNames)
+  - `cn=gitlab-users,ou=service-access,ou=groups,dc=salad,dc=com` (groupOfNames)
+  - `cn=grafana-users,ou=service-access,ou=groups,dc=salad,dc=com` (groupOfNames)
+  - `cn=artifactory-users,ou=service-access,ou=groups,dc=salad,dc=com` (groupOfNames)
+  - `cn=ssh-developers,ou=ssh-access,ou=groups,dc=salad,dc=com` (POSIX)
+  - `cn=gitlab-team-alpha,ou=gitlab-access,ou=groups,dc=salad,dc=com` (groupOfNames)
 
 
 Repeat for all users following the Access Control Matrix.
@@ -371,170 +371,170 @@ You can also create the structure using LDIF files. Create a file `salad-structu
 
 ```ldif
 # Organizational Units
-dn: ou=people,dc=salad,dc=local
+dn: ou=people,dc=salad,dc=com
 objectClass: organizationalUnit
 ou: people
 
-dn: ou=groups,dc=salad,dc=local
+dn: ou=groups,dc=salad,dc=com
 objectClass: organizationalUnit
 ou: groups
 
-dn: ou=roles,dc=salad,dc=local
+dn: ou=roles,dc=salad,dc=com
 objectClass: organizationalUnit
 ou: roles
 
 # Team OUs
-dn: ou=team-alpha,ou=people,dc=salad,dc=local
+dn: ou=team-alpha,ou=people,dc=salad,dc=com
 objectClass: organizationalUnit
 ou: team-alpha
 
-dn: ou=team-beta,ou=people,dc=salad,dc=local
+dn: ou=team-beta,ou=people,dc=salad,dc=com
 objectClass: organizationalUnit
 ou: team-beta
 
-dn: ou=team-infra,ou=people,dc=salad,dc=local
+dn: ou=team-infra,ou=people,dc=salad,dc=com
 objectClass: organizationalUnit
 ou: team-infra
 
 # Group Sub-OUs
-dn: ou=service-access,ou=groups,dc=salad,dc=local
+dn: ou=service-access,ou=groups,dc=salad,dc=com
 objectClass: organizationalUnit
 ou: service-access
 
-dn: ou=ssh-access,ou=groups,dc=salad,dc=local
+dn: ou=ssh-access,ou=groups,dc=salad,dc=com
 objectClass: organizationalUnit
 ou: ssh-access
 
-dn: ou=gitlab-access,ou=groups,dc=salad,dc=local
+dn: ou=gitlab-access,ou=groups,dc=salad,dc=com
 objectClass: organizationalUnit
 ou: gitlab-access
 
 # Service Access Groups
-dn: cn=gitlab-users,ou=service-access,ou=groups,dc=salad,dc=local
+dn: cn=gitlab-users,ou=service-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: gitlab-users
 description: Users with GitLab access
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=prometheus-users,ou=service-access,ou=groups,dc=salad,dc=local
+dn: cn=prometheus-users,ou=service-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: prometheus-users
 description: Users with Prometheus access
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=grafana-users,ou=service-access,ou=groups,dc=salad,dc=local
+dn: cn=grafana-users,ou=service-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: grafana-users
 description: Users with Grafana access
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=portainer-users,ou=service-access,ou=groups,dc=salad,dc=local
+dn: cn=portainer-users,ou=service-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: portainer-users
 description: Users with Portainer access
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=artifactory-users,ou=service-access,ou=groups,dc=salad,dc=local
+dn: cn=artifactory-users,ou=service-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: artifactory-users
 description: Users with Artifactory access
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=lam-admins,ou=service-access,ou=groups,dc=salad,dc=local
+dn: cn=lam-admins,ou=service-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: lam-admins
 description: LAM administrators
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=traefik-users,ou=service-access,ou=groups,dc=salad,dc=local
+dn: cn=traefik-users,ou=service-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: traefik-users
 description: Users with Traefik dashboard access
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=pgadmin-users,ou=service-access,ou=groups,dc=salad,dc=local
+dn: cn=pgadmin-users,ou=service-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: pgadmin-users
 description: Users with pgAdmin access
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
 # SSH Access Groups
-dn: cn=ssh-developers,ou=ssh-access,ou=groups,dc=salad,dc=local
+dn: cn=ssh-developers,ou=ssh-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: ssh-developers
 description: Non-root SSH access to team VMs
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=ssh-admins,ou=ssh-access,ou=groups,dc=salad,dc=local
+dn: cn=ssh-admins,ou=ssh-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: ssh-admins
 description: Root SSH access to all VMs
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=ssh-readonly,ou=ssh-access,ou=groups,dc=salad,dc=local
+dn: cn=ssh-readonly,ou=ssh-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: ssh-readonly
 description: Read-only SSH access
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
 # GitLab Access Groups
-dn: cn=gitlab-team-alpha,ou=gitlab-access,ou=groups,dc=salad,dc=local
+dn: cn=gitlab-team-alpha,ou=gitlab-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: gitlab-team-alpha
 description: Team Alpha GitLab projects
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=gitlab-team-beta,ou=gitlab-access,ou=groups,dc=salad,dc=local
+dn: cn=gitlab-team-beta,ou=gitlab-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: gitlab-team-beta
 description: Team Beta GitLab projects
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=gitlab-team-infra,ou=gitlab-access,ou=groups,dc=salad,dc=local
+dn: cn=gitlab-team-infra,ou=gitlab-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: gitlab-team-infra
 description: Infrastructure team GitLab projects
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
 # Role Groups
-dn: cn=developers,ou=roles,dc=salad,dc=local
+dn: cn=developers,ou=roles,dc=salad,dc=com
 objectClass: groupOfNames
 cn: developers
 description: Developer role
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=senior-developers,ou=roles,dc=salad,dc=local
+dn: cn=senior-developers,ou=roles,dc=salad,dc=com
 objectClass: groupOfNames
 cn: senior-developers
 description: Senior Developer role
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=architects,ou=roles,dc=salad,dc=local
+dn: cn=architects,ou=roles,dc=salad,dc=com
 objectClass: groupOfNames
 cn: architects
 description: Architect role
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=managers,ou=roles,dc=salad,dc=local
+dn: cn=managers,ou=roles,dc=salad,dc=com
 objectClass: groupOfNames
 cn: managers
 description: Manager role
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=sre-engineers,ou=roles,dc=salad,dc=local
+dn: cn=sre-engineers,ou=roles,dc=salad,dc=com
 objectClass: groupOfNames
 cn: sre-engineers
 description: SRE Engineer role
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
-dn: cn=security-engineers,ou=roles,dc=salad,dc=local
+dn: cn=security-engineers,ou=roles,dc=salad,dc=com
 objectClass: groupOfNames
 cn: security-engineers
 description: Security Engineer role
-member: cn=placeholder,dc=salad,dc=local
+member: cn=placeholder,dc=salad,dc=com
 
 # Example User: Alice Developer (Team Alpha)
-dn: uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=local
+dn: uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -542,7 +542,7 @@ uid: alice.dev
 cn: Alice Developer
 givenName: Alice
 sn: Developer
-mail: alice.dev@salad.local
+mail: alice.dev@salad.com
 uidNumber: 10001
 gidNumber: 10001
 homeDirectory: /home/alice.dev
@@ -550,7 +550,7 @@ loginShell: /bin/bash
 userPassword: {SSHA}placeholder
 
 # Example User: Frank SRE (Team Infra)
-dn: uid=frank.sre,ou=team-infra,ou=people,dc=salad,dc=local
+dn: uid=frank.sre,ou=team-infra,ou=people,dc=salad,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -558,7 +558,7 @@ uid: frank.sre
 cn: Frank SRE
 givenName: Frank
 sn: SRE
-mail: frank.sre@salad.local
+mail: frank.sre@salad.com
 uidNumber: 10006
 gidNumber: 10006
 homeDirectory: /home/frank.sre
@@ -569,7 +569,7 @@ userPassword: {SSHA}placeholder
 Import the LDIF file from the LDAP VM:
 
 ```bash
-ldapadd -x -D "cn=admin,dc=salad,dc=local" -W -f salad-structure.ldif
+ldapadd -x -D "cn=admin,dc=salad,dc=com" -W -f salad-structure.ldif
 ```
 
 ## 6. Verification & Testing
@@ -578,24 +578,24 @@ ldapadd -x -D "cn=admin,dc=salad,dc=local" -W -f salad-structure.ldif
 
 ```bash
 # Search all entries
-ldapsearch -x -H ldap://192.168.123.46 -b "dc=salad,dc=local"
+ldapsearch -x -H ldap://192.168.123.46 -b "dc=salad,dc=com"
 
 # Search for users
-ldapsearch -x -H ldap://192.168.123.46 -b "ou=people,dc=salad,dc=local"
+ldapsearch -x -H ldap://192.168.123.46 -b "ou=people,dc=salad,dc=com"
 
 # Search for groups
-ldapsearch -x -H ldap://192.168.123.46 -b "ou=groups,dc=salad,dc=local"
+ldapsearch -x -H ldap://192.168.123.46 -b "ou=groups,dc=salad,dc=com"
 
 # Search for a specific user
-ldapsearch -x -H ldap://192.168.123.46 -b "dc=salad,dc=local" "(uid=alice.dev)"
+ldapsearch -x -H ldap://192.168.123.46 -b "dc=salad,dc=com" "(uid=alice.dev)"
 
 # Search for group members
-ldapsearch -x -H ldap://192.168.123.46 -b "dc=salad,dc=local" "(cn=gitlab-users)"
+ldapsearch -x -H ldap://192.168.123.46 -b "dc=salad,dc=com" "(cn=gitlab-users)"
 ```
 
 ### 6.2. Test User Authentication
 
 ```bash
 # Test bind as a user
-ldapwhoami -x -H ldap://192.168.123.46 -D "uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=local" -W
+ldapwhoami -x -H ldap://192.168.123.46 -D "uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=com" -W
 ```

@@ -46,17 +46,17 @@ Always ensure that virtual networks have autostart enabled so they activate auto
 
 ---
 
-### Cannot resolve *.salad.local domains from host
+### Cannot resolve *.salad.com domains from host
 
 **Problem:**
-When trying to ping or access services using `.salad.local` domains from the host machine, you get:
+When trying to ping or access services using `.salad.com` domains from the host machine, you get:
 ```
-$ ping dns.salad.local
-ping: dns.salad.local: Temporary failure in name resolution
+$ ping dns.salad.com
+ping: dns.salad.com: Temporary failure in name resolution
 ```
 
 **Cause:**
-The host machine is not configured to use the DNS VM (192.168.123.10) for resolving `*.salad.local` domains.
+The host machine is not configured to use the DNS VM (192.168.123.10) for resolving `*.salad.com` domains.
 
 **Solution:**
 
@@ -67,21 +67,21 @@ The host machine is not configured to use the DNS VM (192.168.123.10) for resolv
    ```
    *(Should show 192.168.123.10)*
 
-2. Configure systemd-resolved to use the DNS VM for the salad.local domain:
+2. Configure systemd-resolved to use the DNS VM for the salad.com domain:
    ```bash
    sudo resolvectl dns virbr1 192.168.123.10
-   sudo resolvectl domain virbr1 ~salad.local
+   sudo resolvectl domain virbr1 ~salad.com
    ```
 
 3. Verify the configuration:
    ```bash
    resolvectl status virbr1
    ```
-   *(Should show DNS Server: 192.168.123.10 and DNS Domain: ~salad.local)*
+   *(Should show DNS Server: 192.168.123.10 and DNS Domain: ~salad.com)*
 
 4. Test DNS resolution:
    ```bash
-   ping -c 2 dns.salad.local
+   ping -c 2 dns.salad.com
    ```
 
 5. **Make it persistent** (important - the above commands are temporary):
@@ -93,7 +93,7 @@ The host machine is not configured to use the DNS VM (192.168.123.10) for resolv
    
    [Network]
    DNS=192.168.123.10
-   Domains=~salad.local
+   Domains=~salad.com
    EOF
    sudo systemctl restart systemd-networkd
    ```
@@ -110,7 +110,7 @@ sudo virsh start dns
 Then reapply the DNS configuration:
 ```bash
 sudo resolvectl dns virbr1 192.168.123.10
-sudo resolvectl domain virbr1 ~salad.local
+sudo resolvectl domain virbr1 ~salad.com
 ```
 
 ---
@@ -118,10 +118,10 @@ sudo resolvectl domain virbr1 ~salad.local
 ### BusyBox ping fails with "bad address" on Alpine Linux VMs
 
 **Problem:**
-When trying to ping a `.salad.local` domain from an Alpine Linux VM, you get:
+When trying to ping a `.salad.com` domain from an Alpine Linux VM, you get:
 ```
-proxy:~# ping dns.salad.local
-ping: bad address 'dns.salad.local'
+proxy:~# ping dns.salad.com
+ping: bad address 'dns.salad.com'
 ```
 
 **Cause:**
@@ -131,12 +131,12 @@ BusyBox's `ping` implementation (used in Alpine Linux) queries for both IPv4 (A)
 
 **Option 1:** Force IPv4-only resolution (recommended):
 ```bash
-ping -4 -c 2 dns.salad.local
+ping -4 -c 2 dns.salad.com
 ```
 
 **Option 2:** Use `getent` to verify DNS resolution is working:
 ```bash
-getent hosts dns.salad.local
+getent hosts dns.salad.com
 ```
 
 **Option 3:** Install full `iputils` package (if needed):

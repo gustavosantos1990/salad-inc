@@ -5,7 +5,7 @@ This guide configures GitLab to send welcome emails to new users when they first
 ## Prerequisites
 
 - GitLab installed and running
-- Mail server (mail.salad.local) configured and accessible
+- Mail server (mail.salad.com) configured and accessible
 - Keycloak SSO integration working
 
 ---
@@ -15,7 +15,7 @@ This guide configures GitLab to send welcome emails to new users when they first
 ### 1.1. SSH into GitLab VM
 
 ```bash
-ssh root@repository.salad.local
+ssh root@repository.salad.com
 ```
 
 ### 1.2. Edit GitLab Configuration
@@ -35,9 +35,9 @@ Find the email settings section (or add it) and configure:
 
 # Enable email notifications
 gitlab_rails['gitlab_email_enabled'] = true
-gitlab_rails['gitlab_email_from'] = 'gitlab@salad.local'
+gitlab_rails['gitlab_email_from'] = 'gitlab@salad.com'
 gitlab_rails['gitlab_email_display_name'] = 'GitLab - Salad Inc'
-gitlab_rails['gitlab_email_reply_to'] = 'noreply@salad.local'
+gitlab_rails['gitlab_email_reply_to'] = 'noreply@salad.com'
 gitlab_rails['gitlab_email_subject_suffix'] = ''
 
 ################################################################################
@@ -45,9 +45,9 @@ gitlab_rails['gitlab_email_subject_suffix'] = ''
 ################################################################################
 
 gitlab_rails['smtp_enable'] = true
-gitlab_rails['smtp_address'] = "mail.salad.local"
+gitlab_rails['smtp_address'] = "mail.salad.com"
 gitlab_rails['smtp_port'] = 25
-gitlab_rails['smtp_domain'] = "salad.local"
+gitlab_rails['smtp_domain'] = "salad.com"
 gitlab_rails['smtp_authentication'] = false
 gitlab_rails['smtp_enable_starttls_auto'] = false
 gitlab_rails['smtp_tls'] = false
@@ -88,7 +88,7 @@ Wait for the console to load (may take 30-60 seconds).
 In the Rails console, run:
 
 ```ruby
-Notify.test_email('alice.dev@salad.local', 'GitLab Email Test', 'This is a test email from GitLab.').deliver_now
+Notify.test_email('alice.dev@salad.com', 'GitLab Email Test', 'This is a test email from GitLab.').deliver_now
 ```
 
 You should see output like:
@@ -108,8 +108,8 @@ exit
 On the mail server VM, check if the email was delivered:
 
 ```bash
-ssh root@mail.salad.local
-ls -la /var/mail/vhosts/salad.local/alice.dev/Maildir/new/
+ssh root@mail.salad.com
+ls -la /var/mail/vhosts/salad.com/alice.dev/Maildir/new/
 ```
 
 You should see a new email file.
@@ -235,7 +235,7 @@ Example customization:
 
 ### 6.1. Access GitLab Admin Area
 
-1. Log in to GitLab as admin: `https://gitlab.salad.local`
+1. Log in to GitLab as admin: `https://gitlab.salad.com`
 2. Click **Admin Area** (wrench icon) in the top menu
 
 ### 6.2. Configure Email Settings
@@ -244,8 +244,8 @@ Example customization:
 2. Expand **Email** section
 3. Configure:
    - ✅ **Enable email notifications**
-   - **Email notification email**: `gitlab@salad.local`
-   - **Custom hostname**: `gitlab.salad.local`
+   - **Email notification email**: `gitlab@salad.com`
+   - **Custom hostname**: `gitlab.salad.com`
 4. Click **Save changes**
 
 ### 6.3. Configure Sign-up Restrictions
@@ -293,14 +293,14 @@ exit
 Or check mail server logs:
 
 ```bash
-ssh root@mail.salad.local
+ssh root@mail.salad.com
 tail -50 /var/log/messages | grep -i "charlie.dev"
 ```
 
 Check mailbox:
 
 ```bash
-ls -la /var/mail/vhosts/salad.local/charlie.dev/Maildir/new/
+ls -la /var/mail/vhosts/salad.com/charlie.dev/Maildir/new/
 ```
 
 ---
@@ -332,7 +332,7 @@ tail -f /var/log/gitlab/gitlab-rails/production.log | grep -i mail
 ### 8.3. Check Mail Server Logs
 
 ```bash
-ssh root@mail.salad.local
+ssh root@mail.salad.com
 tail -f /var/log/messages | grep postfix
 ```
 
@@ -350,11 +350,11 @@ gitlab-rails console
 
 ```ruby
 ActionMailer::Base.smtp_settings
-# Should show your mail.salad.local configuration
+# Should show your mail.salad.com configuration
 
 # Test connection
 require 'net/smtp'
-Net::SMTP.start('mail.salad.local', 25) do |smtp|
+Net::SMTP.start('mail.salad.com', 25) do |smtp|
   puts "Connected successfully!"
 end
 
@@ -412,13 +412,13 @@ exit
 **Check mail server:**
 
 ```bash
-ssh root@mail.salad.local
+ssh root@mail.salad.com
 
 # Check if email was received
 tail -100 /var/log/messages | grep "charlie.dev"
 
 # Check mailbox
-ls -la /var/mail/vhosts/salad.local/charlie.dev/Maildir/new/
+ls -la /var/mail/vhosts/salad.com/charlie.dev/Maildir/new/
 ```
 
 **Check Dovecot logs:**
@@ -451,15 +451,15 @@ tail -100 /var/log/messages | grep dovecot
 ```ruby
 # Email Settings
 gitlab_rails['gitlab_email_enabled'] = true
-gitlab_rails['gitlab_email_from'] = 'gitlab@salad.local'
+gitlab_rails['gitlab_email_from'] = 'gitlab@salad.com'
 gitlab_rails['gitlab_email_display_name'] = 'GitLab - Salad Inc'
-gitlab_rails['gitlab_email_reply_to'] = 'noreply@salad.local'
+gitlab_rails['gitlab_email_reply_to'] = 'noreply@salad.com'
 
 # SMTP Settings
 gitlab_rails['smtp_enable'] = true
-gitlab_rails['smtp_address'] = "mail.salad.local"
+gitlab_rails['smtp_address'] = "mail.salad.com"
 gitlab_rails['smtp_port'] = 25
-gitlab_rails['smtp_domain'] = "salad.local"
+gitlab_rails['smtp_domain'] = "salad.com"
 gitlab_rails['smtp_authentication'] = false
 gitlab_rails['smtp_enable_starttls_auto'] = false
 gitlab_rails['smtp_tls'] = false
@@ -479,7 +479,7 @@ gitlab-ctl reconfigure
 
 # Test email
 gitlab-rails console
-Notify.test_email('user@salad.local', 'Test', 'Body').deliver_now
+Notify.test_email('user@salad.com', 'Test', 'Body').deliver_now
 exit
 
 # Check logs

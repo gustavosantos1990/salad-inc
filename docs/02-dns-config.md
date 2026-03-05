@@ -1,6 +1,6 @@
 # 02 - Provisioning Core DNS
 
-In this step, we provision the **DNS** VM (`dns.salad.local`). This separate Alpine Linux instance runs `dnsmasq` to resolve internal domains for the infrastructure.
+In this step, we provision the **DNS** VM (`dns.salad.com`). This separate Alpine Linux instance runs `dnsmasq` to resolve internal domains for the infrastructure.
 
 ## 1. VM Directory Structure
 
@@ -62,7 +62,7 @@ Follow the `setup-alpine` prompts to install Alpine Linux. Here are the recommen
 
 1. **Keyboard Layout:** `br` (Brazilian)
 2. **Keyboard Variant:** `br` (or press Enter for default)
-3. **Hostname:** `dns.salad.local`
+3. **Hostname:** `dns.salad.com`
 4. **Interface:** `eth0`
 5. **IP Address:** `dhcp`
 6. **Do you want to do any manual network configuration?** `no`
@@ -172,37 +172,37 @@ Once you have finished `setup-alpine` and rebooted into the fresh system, log in
     bogus-priv
     no-resolv
     server=8.8.8.8
-    local=/salad.local/
-    domain=salad.local
+    local=/salad.com/
+    domain=salad.com
     expand-hosts
     filter-AAAA
     
     # Static Records
     
     # Core Infrastructure
-    address=/dns.salad.local/192.168.123.10
-    address=/proxy.salad.local/192.168.123.30
+    address=/dns.salad.com/192.168.123.10
+    address=/proxy.salad.com/192.168.123.30
     
     # Services (→ Nginx for SSL termination)
-    address=/gitlab.salad.local/192.168.123.30
-    address=/nexus.salad.local/192.168.123.30
-    address=/lam.salad.local/192.168.123.30
-    address=/grafana.salad.local/192.168.123.30
-    address=/keycloak.salad.local/192.168.123.30
-    address=/portainer.salad.local/192.168.123.30
+    address=/gitlab.salad.com/192.168.123.30
+    address=/nexus.salad.com/192.168.123.30
+    address=/lam.salad.com/192.168.123.30
+    address=/grafana.salad.com/192.168.123.30
+    address=/keycloak.salad.com/192.168.123.30
+    address=/portainer.salad.com/192.168.123.30
     
     # Direct VM Access (for SSH, troubleshooting)
-    address=/repository.salad.local/192.168.123.20
-    address=/database.salad.local/192.168.123.21
-    address=/containerization.salad.local/192.168.123.22
-    address=/artifact-repository.salad.local/192.168.123.23
-    address=/monitor.salad.local/192.168.123.31
-    address=/sso.salad.local/192.168.123.41
-    address=/mail.salad.local/192.168.123.45
-    address=/ldap.salad.local/192.168.123.46
+    address=/repository.salad.com/192.168.123.20
+    address=/database.salad.com/192.168.123.21
+    address=/containerization.salad.com/192.168.123.22
+    address=/artifact-repository.salad.com/192.168.123.23
+    address=/monitor.salad.com/192.168.123.31
+    address=/sso.salad.com/192.168.123.41
+    address=/mail.salad.com/192.168.123.45
+    address=/ldap.salad.com/192.168.123.46
     
     # Wildcard for dynamic apps (→ Nginx → Traefik)
-    address=/.app.salad.local/192.168.123.30
+    address=/.app.salad.com/192.168.123.30
     
     # Logging (optional, useful for troubleshooting)
     log-queries
@@ -213,7 +213,7 @@ Once you have finished `setup-alpine` and rebooted into the fresh system, log in
 
 5.  **Fix /etc/hosts Conflict:**
 
-    During Alpine setup, the system automatically adds the hostname to `/etc/hosts` pointing to `127.0.0.1`. This causes `dns.salad.local` to resolve to `127.0.0.1` instead of `192.168.123.10`, overriding the dnsmasq configuration.
+    During Alpine setup, the system automatically adds the hostname to `/etc/hosts` pointing to `127.0.0.1`. This causes `dns.salad.com` to resolve to `127.0.0.1` instead of `192.168.123.10`, overriding the dnsmasq configuration.
 
     Edit `/etc/hosts`:
     ```bash
@@ -222,7 +222,7 @@ Once you have finished `setup-alpine` and rebooted into the fresh system, log in
 
     Change the first line from:
     ```
-    127.0.0.1   dns.salad.local dns localhost.localdomain localhost
+    127.0.0.1   dns.salad.com dns localhost.localdomain localhost
     ```
 
     To:
@@ -230,7 +230,7 @@ Once you have finished `setup-alpine` and rebooted into the fresh system, log in
     127.0.0.1   localhost localhost.localdomain
     ```
 
-    This ensures that `dns.salad.local` is resolved by dnsmasq (to `192.168.123.10`) rather than by the local hosts file.
+    This ensures that `dns.salad.com` is resolved by dnsmasq (to `192.168.123.10`) rather than by the local hosts file.
 
 6.  **Enable and Start Services:**
     
@@ -264,7 +264,7 @@ Once you have finished `setup-alpine` and rebooted into the fresh system, log in
     Test name resolution:
 
     ```bash
-    nslookup containerization.salad.local 127.0.0.1
+    nslookup containerization.salad.com 127.0.0.1
     ```
 
     Verify Node Exporter (Should listen on :::9100):

@@ -1,6 +1,6 @@
 # 10 - Provisioning SSO Server (Keycloak)
 
-We will provision the **SSO** VM (`sso.salad.local`). This is a **Debian 12** instance running **Keycloak**, which provides Identity and Access Management (IAM) for our infrastructure (GitLab, Portainer, Grafana, etc.).
+We will provision the **SSO** VM (`sso.salad.com`). This is a **Debian 12** instance running **Keycloak**, which provides Identity and Access Management (IAM) for our infrastructure (GitLab, Portainer, Grafana, etc.).
 
 ## 1. VM Directory Structure
 
@@ -40,8 +40,8 @@ virt-viewer --connect qemu:///system --wait sso
 ```
 
 ### Installation Pointers
-1.  **Hostname:** `sso.salad.local`
-2.  **Domain:** `salad.local`
+1.  **Hostname:** `sso.salad.com`
+2.  **Domain:** `salad.com`
 3.  **Partitioning:** Standard / (Root).
 4.  **Software Selection:**
     *   [X] SSH server
@@ -73,7 +73,7 @@ Edit `/etc/hosts`:
 ```bash
 vi /etc/hosts
 ```
-Remove/comment: `127.0.1.1 sso.salad.local sso`
+Remove/comment: `127.0.1.1 sso.salad.com sso`
 
 ### 2. Configure SSH Access
 ```bash
@@ -120,10 +120,10 @@ Add/Uncomment the following:
 db=postgres
 db-username=keycloak
 db-password=keycloak_password
-db-url=jdbc:postgresql://database.salad.local:5432/keycloak
+db-url=jdbc:postgresql://database.salad.com:5432/keycloak
 
 # Hostname
-hostname=keycloak.salad.local
+hostname=keycloak.salad.com
 hostname-strict=false
 # We use a proxy (Nginx) which terminates SSL
 proxy=edge
@@ -202,7 +202,7 @@ systemctl restart keycloak
 
 From your host machine:
 
-1.  Open `https://keycloak.salad.local/`.
+1.  Open `https://keycloak.salad.com/`.
 2.  Click "Administration Console".
 3.  Login with `admin` / `admin`.
 
@@ -215,19 +215,19 @@ systemctl enable --now prometheus-node-exporter
 
 ## 8. Configure LDAP Integration
 
-We will connect Keycloak to our OpenLDAP server (`ldap.salad.local`) to verify users against the central directory and synchronize groups/roles.
+We will connect Keycloak to our OpenLDAP server (`ldap.salad.com`) to verify users against the central directory and synchronize groups/roles.
 
 ### 8.1. Prerequisite (LDAP Structure)
 
 Ensure your LDAP directory has the complete structure as defined in `docs/07-ldap-setup.md`:
-- `ou=people,dc=salad,dc=local` with team sub-OUs
-- `ou=groups,dc=salad,dc=local` with service-access, ssh-access, and gitlab-access sub-OUs
-- `ou=roles,dc=salad,dc=local` with role groups
+- `ou=people,dc=salad,dc=com` with team sub-OUs
+- `ou=groups,dc=salad,dc=com` with service-access, ssh-access, and gitlab-access sub-OUs
+- `ou=roles,dc=salad,dc=com` with role groups
 - Sample users created and assigned to appropriate groups
 
 ### 8.2. Add LDAP User Federation
 
-1.  Log in to the **Keycloak Admin Console** (`https://keycloak.salad.local/admin`).
+1.  Log in to the **Keycloak Admin Console** (`https://keycloak.salad.com/admin`).
 2.  Select the **master** realm (or create a new realm called **salad** - recommended).
 3.  Navigate to **User Federation**.
 4.  Click **Add provider** and select **ldap**.
@@ -244,12 +244,12 @@ Ensure your LDAP directory has the complete structure as defined in `docs/07-lda
     | **RDN LDAP Attribute** | `uid` |
     | **UUID LDAP Attribute** | `entryUUID` |
     | **User Object Classes** | `inetOrgPerson, organizationalPerson` |
-    | **Connection URL** | `ldap://ldap.salad.local:389` |
-    | **Users DN** | `ou=people,dc=salad,dc=local` |
+    | **Connection URL** | `ldap://ldap.salad.com:389` |
+    | **Users DN** | `ou=people,dc=salad,dc=com` |
     | **Custom User LDAP Filter** | (leave empty or use `(objectClass=inetOrgPerson)`) |
     | **Search Scope** | `Subtree` (to include team sub-OUs) |
     | **Bind Type** | `simple` |
-    | **Bind DN** | `cn=admin,dc=salad,dc=local` |
+    | **Bind DN** | `cn=admin,dc=salad,dc=com` |
     | **Bind Credential** | *(Your LDAP Admin Password)* |
 
 6.  Click **Test connection** (Ensure it succeeds).
@@ -279,7 +279,7 @@ We need to map LDAP groups to Keycloak groups/roles.
     | :--- | :--- |
     | **Name** | `service-access-mapper` |
     | **Mapper Type** | `group-ldap-mapper` |
-    | **LDAP Groups DN** | `ou=service-access,ou=groups,dc=salad,dc=local` |
+    | **LDAP Groups DN** | `ou=service-access,ou=groups,dc=salad,dc=com` |
     | **Group Name LDAP Attribute** | `cn` |
     | **Group Object Classes** | `groupOfNames` |
     | **Membership LDAP Attribute** | `member` |
@@ -293,9 +293,9 @@ We need to map LDAP groups to Keycloak groups/roles.
 
 4.  Click **Save**.
 5.  Repeat for other group OUs:
-    - **ssh-access-mapper**: `ou=ssh-access,ou=groups,dc=salad,dc=local`
-    - **gitlab-access-mapper**: `ou=gitlab-access,ou=groups,dc=salad,dc=local`
-    - **roles-mapper**: `ou=roles,dc=salad,dc=local`
+    - **ssh-access-mapper**: `ou=ssh-access,ou=groups,dc=salad,dc=com`
+    - **gitlab-access-mapper**: `ou=gitlab-access,ou=groups,dc=salad,dc=com`
+    - **roles-mapper**: `ou=roles,dc=salad,dc=com`
 
 6.  After creating all mappers, click **"Sync LDAP Groups to Keycloak"** for each mapper.
 
@@ -323,7 +323,7 @@ Instead of using the **master** realm (which is for admin purposes), create a de
 1.  Go to **Realm Settings** → **General** tab:
     - **Display name**: `Salad Inc`
     - **HTML Display name**: `<b>Salad</b> Inc`
-    - **Frontend URL**: `https://keycloak.salad.local/`
+    - **Frontend URL**: `https://keycloak.salad.com/`
 
 2.  Go to **Login** tab:
     - **User registration**: `OFF` (users come from LDAP)
@@ -333,8 +333,8 @@ Instead of using the **master** realm (which is for admin purposes), create a de
     - **Login with email**: `ON`
 
 3.  Go to **Email** tab (configure for password reset):
-    - **From**: `noreply@salad.local`
-    - **Host**: `mail.salad.local`
+    - **From**: `noreply@salad.com`
+    - **Host**: `mail.salad.com`
     - **Port**: `25`
     - **Enable SSL**: `OFF`
     - **Enable StartTLS**: `OFF`
@@ -422,9 +422,9 @@ Each service that integrates with Keycloak needs a **client** configuration.
 6.  **Authorization**: `OFF`
 7.  **Authentication flow**: Enable `Standard flow` and `Direct access grants`
 8.  Click **Next**.
-9.  **Root URL**: `https://gitlab.salad.local`
-10. **Valid redirect URIs**: `https://gitlab.salad.local/users/auth/openid_connect/callback`
-11. **Web origins**: `https://gitlab.salad.local`
+9.  **Root URL**: `https://gitlab.salad.com`
+10. **Valid redirect URIs**: `https://gitlab.salad.com/users/auth/openid_connect/callback`
+11. **Web origins**: `https://gitlab.salad.com`
 12. Click **Save**.
 
 #### Configure Client Scopes and Mappers
@@ -459,24 +459,24 @@ Each service that integrates with Keycloak needs a **client** configuration.
 
 1.  Create client with **Client ID**: `grafana`
 2.  **Client authentication**: `ON`
-3.  **Valid redirect URIs**: `https://grafana.salad.local/login/generic_oauth`
-4.  **Web origins**: `https://grafana.salad.local`
+3.  **Valid redirect URIs**: `https://grafana.salad.com/login/generic_oauth`
+4.  **Web origins**: `https://grafana.salad.com`
 5.  Add mappers for `groups` and `roles` (same as GitLab).
 
 ### 11.3. Portainer Client
 
 1.  Create client with **Client ID**: `portainer`
 2.  **Client authentication**: `ON`
-3.  **Valid redirect URIs**: `https://portainer.salad.local/*`
-4.  **Web origins**: `https://portainer.salad.local`
+3.  **Valid redirect URIs**: `https://portainer.salad.com/*`
+4.  **Web origins**: `https://portainer.salad.com`
 5.  Add mappers for `groups` and `roles`.
 
 ### 11.4. Artifactory Client
 
 1.  Create client with **Client ID**: `artifactory`
 2.  **Client authentication**: `ON`
-3.  **Valid redirect URIs**: `https://nexus.salad.local/ui/login`
-4.  **Web origins**: `https://nexus.salad.local`
+3.  **Valid redirect URIs**: `https://nexus.salad.com/ui/login`
+4.  **Web origins**: `https://nexus.salad.com`
 5.  Add mappers for `groups` and `roles`.
 
 ### 11.5. Prometheus Client (Optional)
@@ -485,8 +485,8 @@ Prometheus doesn't natively support OAuth, but you can use **OAuth2 Proxy** as a
 
 1.  Create client with **Client ID**: `prometheus`
 2.  **Client authentication**: `ON`
-3.  **Valid redirect URIs**: `https://prometheus.salad.local/oauth2/callback`
-4.  **Web origins**: `https://prometheus.salad.local`
+3.  **Valid redirect URIs**: `https://prometheus.salad.com/oauth2/callback`
+4.  **Web origins**: `https://prometheus.salad.com`
 
 ### 11.6. Traefik Dashboard Client (Optional)
 
@@ -494,8 +494,8 @@ Similar to Prometheus, use OAuth2 Proxy.
 
 1.  Create client with **Client ID**: `traefik`
 2.  **Client authentication**: `ON`
-3.  **Valid redirect URIs**: `https://traefik.salad.local/oauth2/callback`
-4.  **Web origins**: `https://traefik.salad.local`
+3.  **Valid redirect URIs**: `https://traefik.salad.com/oauth2/callback`
+4.  **Web origins**: `https://traefik.salad.com`
 
 ### 11.7. LAM Client (Optional)
 
@@ -503,8 +503,8 @@ LAM can use LDAP directly, but if you want SSO:
 
 1.  Create client with **Client ID**: `lam`
 2.  **Client authentication**: `ON`
-3.  **Valid redirect URIs**: `https://lam.salad.local/*`
-4.  **Web origins**: `https://lam.salad.local`
+3.  **Valid redirect URIs**: `https://lam.salad.com/*`
+4.  **Web origins**: `https://lam.salad.com`
 
 ## 12. GitLab Integration with Keycloak
 
@@ -528,14 +528,14 @@ gitlab_rails['omniauth_providers'] = [
       name: 'openid_connect',
       scope: ['openid', 'profile', 'email'],
       response_type: 'code',
-      issuer: 'https://keycloak.salad.local/realms/salad',
+      issuer: 'https://keycloak.salad.com/realms/salad',
       client_auth_method: 'query',
       discovery: true,
       uid_field: 'preferred_username',
       client_options: {
         identifier: 'gitlab',
         secret: 'YOUR_CLIENT_SECRET_FROM_KEYCLOAK',
-        redirect_uri: 'https://gitlab.salad.local/users/auth/openid_connect/callback'
+        redirect_uri: 'https://gitlab.salad.com/users/auth/openid_connect/callback'
       }
     }
   }
@@ -554,7 +554,7 @@ GitLab supports **group sync** with LDAP. You can map LDAP groups to GitLab grou
 
 1.  In GitLab, create groups: `team-alpha`, `team-beta`, `team-infra`.
 2.  For each group, go to **Settings** → **LDAP Synchronization**.
-3.  Add LDAP group DN (e.g., `cn=gitlab-team-alpha,ou=gitlab-access,ou=groups,dc=salad,dc=local`).
+3.  Add LDAP group DN (e.g., `cn=gitlab-team-alpha,ou=gitlab-access,ou=groups,dc=salad,dc=com`).
 4.  Set permissions (Developer, Maintainer, Owner).
 
 **Note**: GitLab CE has limited LDAP group sync. GitLab EE (Enterprise Edition) has full support. For CE, you may need to manually assign users to groups or use API automation.
@@ -588,20 +588,20 @@ Create `/etc/sssd/sssd.conf`:
 [sssd]
 services = nss, pam, ssh
 config_file_version = 2
-domains = salad.local
+domains = salad.com
 
-[domain/salad.local]
+[domain/salad.com]
 id_provider = ldap
 auth_provider = ldap
-ldap_uri = ldap://ldap.salad.local
-ldap_search_base = dc=salad,dc=local
-ldap_default_bind_dn = cn=admin,dc=salad,dc=local
+ldap_uri = ldap://ldap.salad.com
+ldap_search_base = dc=salad,dc=com
+ldap_default_bind_dn = cn=admin,dc=salad,dc=com
 ldap_default_authtok = YOUR_LDAP_ADMIN_PASSWORD
 ldap_tls_reqcert = never
 
 # User and group settings
-ldap_user_search_base = ou=people,dc=salad,dc=local
-ldap_group_search_base = ou=groups,dc=salad,dc=local
+ldap_user_search_base = ou=people,dc=salad,dc=com
+ldap_group_search_base = ou=groups,dc=salad,dc=com
 ldap_user_object_class = inetOrgPerson
 ldap_group_object_class = groupOfNames
 ldap_user_name = uid
@@ -684,10 +684,10 @@ From your host machine:
 
 ```bash
 # Test SSH as a developer (should work if in ssh-developers group)
-ssh alice.dev@containerization.salad.local
+ssh alice.dev@containerization.salad.com
 
 # Test SSH as SRE (should work with sudo)
-ssh frank.sre@containerization.salad.local
+ssh frank.sre@containerization.salad.com
 sudo -i  # Should work without password
 ```
 
@@ -705,9 +705,9 @@ allow_sign_up = true
 client_id = grafana
 client_secret = YOUR_CLIENT_SECRET_FROM_KEYCLOAK
 scopes = openid profile email
-auth_url = https://keycloak.salad.local/realms/salad/protocol/openid-connect/auth
-token_url = https://keycloak.salad.local/realms/salad/protocol/openid-connect/token
-api_url = https://keycloak.salad.local/realms/salad/protocol/openid-connect/userinfo
+auth_url = https://keycloak.salad.com/realms/salad/protocol/openid-connect/auth
+token_url = https://keycloak.salad.com/realms/salad/protocol/openid-connect/token
+api_url = https://keycloak.salad.com/realms/salad/protocol/openid-connect/userinfo
 role_attribute_path = contains(roles[*], 'grafana-admin') && 'Admin' || contains(roles[*], 'grafana-user') && 'Viewer'
 ```
 
@@ -726,10 +726,10 @@ In Portainer UI:
 3.  **Provider**: Custom
 4.  **Client ID**: `portainer`
 5.  **Client Secret**: YOUR_CLIENT_SECRET_FROM_KEYCLOAK
-6.  **Authorization URL**: `https://keycloak.salad.local/realms/salad/protocol/openid-connect/auth`
-7.  **Access Token URL**: `https://keycloak.salad.local/realms/salad/protocol/openid-connect/token`
-8.  **Resource URL**: `https://keycloak.salad.local/realms/salad/protocol/openid-connect/userinfo`
-9.  **Redirect URL**: `https://portainer.salad.local`
+6.  **Authorization URL**: `https://keycloak.salad.com/realms/salad/protocol/openid-connect/auth`
+7.  **Access Token URL**: `https://keycloak.salad.com/realms/salad/protocol/openid-connect/token`
+8.  **Resource URL**: `https://keycloak.salad.com/realms/salad/protocol/openid-connect/userinfo`
+9.  **Redirect URL**: `https://portainer.salad.com`
 10. **User Identifier**: `preferred_username`
 11. **Scopes**: `openid profile email`
 
@@ -742,9 +742,9 @@ In Artifactory UI:
 3.  **Provider Type**: Custom
 4.  **Client ID**: `artifactory`
 5.  **Client Secret**: YOUR_CLIENT_SECRET_FROM_KEYCLOAK
-6.  **Authorization URL**: `https://keycloak.salad.local/realms/salad/protocol/openid-connect/auth`
-7.  **Token URL**: `https://keycloak.salad.local/realms/salad/protocol/openid-connect/token`
-8.  **User Info URL**: `https://keycloak.salad.local/realms/salad/protocol/openid-connect/userinfo`
+6.  **Authorization URL**: `https://keycloak.salad.com/realms/salad/protocol/openid-connect/auth`
+7.  **Token URL**: `https://keycloak.salad.com/realms/salad/protocol/openid-connect/token`
+8.  **User Info URL**: `https://keycloak.salad.com/realms/salad/protocol/openid-connect/userinfo`
 
 ### 14.4. OAuth2 Proxy for Prometheus/Traefik
 
@@ -758,10 +758,10 @@ docker run -d \
   --provider=oidc \
   --client-id=prometheus \
   --client-secret=YOUR_CLIENT_SECRET \
-  --redirect-url=https://prometheus.salad.local/oauth2/callback \
-  --oidc-issuer-url=https://keycloak.salad.local/realms/salad \
+  --redirect-url=https://prometheus.salad.com/oauth2/callback \
+  --oidc-issuer-url=https://keycloak.salad.com/realms/salad \
   --cookie-secret=RANDOM_32_CHAR_STRING \
-  --email-domain=salad.local \
+  --email-domain=salad.com \
   --upstream=http://localhost:9090 \
   --http-address=0.0.0.0:4180
 ```

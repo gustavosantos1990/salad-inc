@@ -1,6 +1,6 @@
 # 13 - Provisioning Artifact Repository (Sonatype Nexus Repository CE)
 
-We will provision the **Artifact Repository** VM (`artifact-repository.salad.local`). This is a **Debian 12** instance running **Sonatype Nexus Repository Community Edition (CE)**, which serves as:
+We will provision the **Artifact Repository** VM (`artifact-repository.salad.com`). This is a **Debian 12** instance running **Sonatype Nexus Repository Community Edition (CE)**, which serves as:
 
 - **Maven Repository** — stores, proxies, and groups Java build artifacts
 - **Docker Registry** — stores and distributes Docker images built by GitLab CI
@@ -48,8 +48,8 @@ virt-viewer --connect qemu:///system --wait artifact-repository
 
 ### Installation Pointers
 
-1. **Hostname:** `artifact-repository.salad.local`
-2. **Domain:** `salad.local`
+1. **Hostname:** `artifact-repository.salad.com`
+2. **Domain:** `salad.com`
 3. **Partitioning:** Standard / (Root).
 4. **Software Selection:**
    - [X] SSH server
@@ -82,7 +82,7 @@ echo "nameserver 192.168.123.10" > /etc/resolv.conf
 ```bash
 vi /etc/hosts
 ```
-Remove/comment: `127.0.1.1 artifact-repository.salad.local artifact-repository`
+Remove/comment: `127.0.1.1 artifact-repository.salad.com artifact-repository`
 
 **Enable Serial Console:**
 ```bash
@@ -110,9 +110,9 @@ apt-get install -y openjdk-17-jdk-headless && java -version
 
 ## 5. Prepare PostgreSQL Database
 
-Nexus CE supports an external PostgreSQL database (added in v3.77.0). Ensure the database and user exist on `database.salad.local` (see `docs/09-database-setup.md`).
+Nexus CE supports an external PostgreSQL database (added in v3.77.0). Ensure the database and user exist on `database.salad.com` (see `docs/09-database-setup.md`).
 
-On `database.salad.local`, connect as `postgres` and run:
+On `database.salad.com`, connect as `postgres` and run:
 
 ```sql
 CREATE USER nexus WITH PASSWORD 'nexus_password';
@@ -199,7 +199,7 @@ cat >> /opt/nexus-data/etc/nexus.properties << 'EOF'
 
 # External PostgreSQL (Nexus CE >= 3.77.0)
 nexus.datastore.enabled=true
-nexus.datastore.nexus.jdbcUrl=jdbc:postgresql://database.salad.local:5432/nexus
+nexus.datastore.nexus.jdbcUrl=jdbc:postgresql://database.salad.com:5432/nexus
 nexus.datastore.nexus.username=nexus
 nexus.datastore.nexus.password=nexus_password
 nexus.datastore.nexus.maximumPoolSize=50
@@ -263,7 +263,7 @@ Expected: Nexus on port `8081`.
 Access via SSH tunnel from your host machine:
 
 ```bash
-ssh -L 8081:localhost:8081 root@artifact-repository.salad.local
+ssh -L 8081:localhost:8081 root@artifact-repository.salad.com
 ```
 
 Open `http://localhost:8081` in your browser.
@@ -284,18 +284,18 @@ Log in and complete the setup wizard:
 
 ## 8. Configure LDAP Authentication
 
-Nexus CE supports LDAP natively. Configure it to authenticate against `ldap.salad.local`.
+Nexus CE supports LDAP natively. Configure it to authenticate against `ldap.salad.com`.
 
 1. Go to **Administration** (gear icon) → **Security** → **LDAP**.
 2. Click **Create connection**.
 3. Configure:
    - **Name:** `salad-ldap`
    - **Protocol:** `ldap`
-   - **Hostname:** `ldap.salad.local`
+   - **Hostname:** `ldap.salad.com`
    - **Port:** `389`
-   - **Search base:** `dc=salad,dc=local`
+   - **Search base:** `dc=salad,dc=com`
    - **Authentication:** `Simple`
-   - **Username:** `cn=admin,dc=salad,dc=local`
+   - **Username:** `cn=admin,dc=salad,dc=com`
    - **Password:** *(LDAP admin password)*
 4. Click **Verify connection** → should show `Connected`.
 5. Under **User and group settings**:
@@ -398,7 +398,7 @@ Create a dedicated user for GitLab CI.
 2. Configure:
    - **Username:** `gitlab-ci`
    - **First name / Last name:** GitLab CI
-   - **Email:** `gitlab-ci@salad.local`
+   - **Email:** `gitlab-ci@salad.com`
    - **Password:** set a strong password
    - **Status:** Active
    - **Roles:** `nx-anonymous` as a base, then assign a custom role (see below)
@@ -420,7 +420,7 @@ Assign the `ci-deploy` role to `gitlab-ci`.
 
 ---
 
-## 11. Configure Nginx Proxy (on proxy.salad.local)
+## 11. Configure Nginx Proxy (on proxy.salad.com)
 
 Add the following blocks to `services.conf` on the proxy VM. Nexus needs three virtual hosts: one for the UI/Maven and two for Docker (push port + pull port).
 
@@ -428,15 +428,15 @@ Add the following blocks to `services.conf` on the proxy VM. Nexus needs three v
 # --- Nexus UI + Maven ---
 server {
     listen 443 ssl;
-    server_name nexus.salad.local;
+    server_name nexus.salad.com;
 
-    ssl_certificate /etc/nginx/ssl/salad.local.crt;
-    ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+    ssl_certificate /etc/nginx/ssl/salad.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
     client_max_body_size 0;
 
     location / {
-        set $backend_nexus artifact-repository.salad.local:8081;
+        set $backend_nexus artifact-repository.salad.com:8081;
         proxy_pass http://$backend_nexus;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -448,23 +448,23 @@ server {
 
 server {
     listen 80;
-    server_name nexus.salad.local;
+    server_name nexus.salad.com;
     return 301 https://$host$request_uri;
 }
 
 # --- Docker Push (CI/CD → hosted repo) ---
 server {
     listen 443 ssl;
-    server_name registry-push.salad.local;
+    server_name registry-push.salad.com;
 
-    ssl_certificate /etc/nginx/ssl/salad.local.crt;
-    ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+    ssl_certificate /etc/nginx/ssl/salad.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
     client_max_body_size 0;
     chunked_transfer_encoding on;
 
     location / {
-        set $backend_docker_push artifact-repository.salad.local:8082;
+        set $backend_docker_push artifact-repository.salad.com:8082;
         proxy_pass http://$backend_docker_push;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -476,23 +476,23 @@ server {
 
 server {
     listen 80;
-    server_name registry-push.salad.local;
+    server_name registry-push.salad.com;
     return 301 https://$host$request_uri;
 }
 
 # --- Docker Pull (Swarm → group repo) ---
 server {
     listen 443 ssl;
-    server_name registry.salad.local;
+    server_name registry.salad.com;
 
-    ssl_certificate /etc/nginx/ssl/salad.local.crt;
-    ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+    ssl_certificate /etc/nginx/ssl/salad.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
     client_max_body_size 0;
     chunked_transfer_encoding on;
 
     location / {
-        set $backend_docker_pull artifact-repository.salad.local:8083;
+        set $backend_docker_pull artifact-repository.salad.com:8083;
         proxy_pass http://$backend_docker_pull;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -504,7 +504,7 @@ server {
 
 server {
     listen 80;
-    server_name registry.salad.local;
+    server_name registry.salad.com;
     return 301 https://$host$request_uri;
 }
 ```
@@ -516,15 +516,15 @@ nginx -t && nginx -s reload
 
 ### DNS Entries
 
-On `dns.salad.local`, add:
+On `dns.salad.com`, add:
 
 ```bash
-echo "address=/registry-push.salad.local/192.168.123.30" >> /etc/dnsmasq.conf
-echo "address=/registry.salad.local/192.168.123.30" >> /etc/dnsmasq.conf
+echo "address=/registry-push.salad.com/192.168.123.30" >> /etc/dnsmasq.conf
+echo "address=/registry.salad.com/192.168.123.30" >> /etc/dnsmasq.conf
 service dnsmasq restart
 ```
 
-> `nexus.salad.local` DNS entry already points to `192.168.123.30` (Nginx) — no change needed.
+> `nexus.salad.com` DNS entry already points to `192.168.123.30` (Nginx) — no change needed.
 
 ---
 
@@ -545,7 +545,7 @@ Create `.mvn/settings.xml` in the project:
     <mirror>
       <id>nexus</id>
       <mirrorOf>*</mirrorOf>
-      <url>https://nexus.salad.local/repository/maven-group/</url>
+      <url>https://nexus.salad.com/repository/maven-group/</url>
     </mirror>
   </mirrors>
   <profiles>
@@ -554,7 +554,7 @@ Create `.mvn/settings.xml` in the project:
       <repositories>
         <repository>
           <id>nexus</id>
-          <url>https://nexus.salad.local/repository/maven-group/</url>
+          <url>https://nexus.salad.com/repository/maven-group/</url>
           <releases><enabled>true</enabled></releases>
           <snapshots><enabled>false</enabled></snapshots>
         </repository>
@@ -599,9 +599,9 @@ build-image:
     DOCKER_HOST: tcp://docker:2376
     DOCKER_TLS_CERTDIR: "/certs"
     # Push to the hosted repo (port 8082 / registry-push)
-    IMAGE_NAME: registry-push.salad.local/my-app
+    IMAGE_NAME: registry-push.salad.com/my-app
   script:
-    - docker login registry-push.salad.local -u gitlab-ci -p $NEXUS_CI_PASSWORD
+    - docker login registry-push.salad.com -u gitlab-ci -p $NEXUS_CI_PASSWORD
     - docker build -t $IMAGE_NAME:$CI_COMMIT_SHORT_SHA .
     - docker push $IMAGE_NAME:$CI_COMMIT_SHORT_SHA
 ```
@@ -610,7 +610,7 @@ Docker Swarm pulls from the group (port 8083 / registry):
 
 ```yaml
 # In your stack deploy or compose file:
-image: registry.salad.local/my-app:1.0.0
+image: registry.salad.com/my-app:1.0.0
 ```
 
 ---
@@ -630,27 +630,27 @@ From your host machine:
 
 1. **Nexus UI:**
    ```bash
-   curl -k https://nexus.salad.local/service/rest/v1/status
+   curl -k https://nexus.salad.com/service/rest/v1/status
    ```
    Expected: HTTP 200
 
 2. **Maven repository accessible:**
    ```bash
-   curl -k -u admin:<password> https://nexus.salad.local/repository/maven-group/
+   curl -k -u admin:<password> https://nexus.salad.com/repository/maven-group/
    ```
 
 3. **Docker push (CI → hosted):**
    ```bash
-   docker login registry-push.salad.local -u gitlab-ci -p <password>
+   docker login registry-push.salad.com -u gitlab-ci -p <password>
    docker pull hello-world
-   docker tag hello-world registry-push.salad.local/hello-world:test
-   docker push registry-push.salad.local/hello-world:test
+   docker tag hello-world registry-push.salad.com/hello-world:test
+   docker push registry-push.salad.com/hello-world:test
    ```
 
 4. **Docker pull (Swarm → group):**
    ```bash
-   docker login registry.salad.local -u gitlab-ci -p <password>
-   docker pull registry.salad.local/hello-world:test
+   docker login registry.salad.com -u gitlab-ci -p <password>
+   docker pull registry.salad.com/hello-world:test
    ```
 
 5. **Node Exporter:**

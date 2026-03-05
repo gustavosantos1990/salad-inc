@@ -1,6 +1,6 @@
 # 05 - Provisioning Mail Server (Postfix)
 
-We will provision the **Mail** VM (`mail.salad.local`). This is an **Alpine Linux** instance running **Postfix** (SMTP) and **Dovecot** (IMAP).
+We will provision the **Mail** VM (`mail.salad.com`). This is an **Alpine Linux** instance running **Postfix** (SMTP) and **Dovecot** (IMAP).
 
 ## 1. Directory & Disk
 
@@ -128,8 +128,8 @@ vi /etc/postfix/main.cf
 
 Add/modify these settings:
 ```text
-myhostname = mail.salad.local
-mydomain = salad.local
+myhostname = mail.salad.com
+mydomain = salad.com
 myorigin = $mydomain
 inet_interfaces = all
 inet_protocols = ipv4
@@ -138,7 +138,7 @@ mynetworks = 127.0.0.0/8 192.168.123.0/24
 home_mailbox = Maildir/
 ```
 
-**Important:** `mydestination = localhost` (NOT including `salad.local`) is crucial. The `salad.local` domain will be handled as a virtual domain via LDAP. Including it in both `mydestination` and `virtual_mailbox_domains` causes conflicts.
+**Important:** `mydestination = localhost` (NOT including `salad.com`) is crucial. The `salad.com` domain will be handled as a virtual domain via LDAP. Including it in both `mydestination` and `virtual_mailbox_domains` causes conflicts.
 
 Enable and start:
 ```bash
@@ -195,7 +195,7 @@ To enable centralized user management, we'll configure both Postfix and Dovecot 
 apk add openldap-clients postfix-ldap dovecot-ldap
 ```
 
-**Note:** In the following configurations, we use the LDAP server's IP address (`192.168.123.46`) instead of the hostname (`ldap.salad.local`). This is because Alpine Linux's OpenLDAP client library may have issues resolving hostnames in some configurations, even when system DNS works correctly. Using the IP address ensures reliable LDAP connectivity.
+**Note:** In the following configurations, we use the LDAP server's IP address (`192.168.123.46`) instead of the hostname (`ldap.salad.com`). This is because Alpine Linux's OpenLDAP client library may have issues resolving hostnames in some configurations, even when system DNS works correctly. Using the IP address ensures reliable LDAP connectivity.
 
 #### 7.2. Configure Postfix for LDAP Virtual Mailboxes
 
@@ -207,9 +207,9 @@ server_host = 192.168.123.46
 server_port = 389
 version = 3
 bind = yes
-bind_dn = cn=admin,dc=salad,dc=local
+bind_dn = cn=admin,dc=salad,dc=com
 bind_pw = YOUR_LDAP_ADMIN_PASSWORD
-search_base = ou=people,dc=salad,dc=local
+search_base = ou=people,dc=salad,dc=com
 scope = sub
 query_filter = (&(objectClass=inetOrgPerson)(mail=%s))
 result_attribute = mail
@@ -225,9 +225,9 @@ server_host = 192.168.123.46
 server_port = 389
 version = 3
 bind = yes
-bind_dn = cn=admin,dc=salad,dc=local
+bind_dn = cn=admin,dc=salad,dc=com
 bind_pw = YOUR_LDAP_ADMIN_PASSWORD
-search_base = ou=people,dc=salad,dc=local
+search_base = ou=people,dc=salad,dc=com
 scope = sub
 query_filter = (&(objectClass=inetOrgPerson)(mail=%s))
 result_attribute = mail
@@ -242,9 +242,9 @@ server_host = 192.168.123.46
 server_port = 389
 version = 3
 bind = yes
-bind_dn = cn=admin,dc=salad,dc=local
+bind_dn = cn=admin,dc=salad,dc=com
 bind_pw = YOUR_LDAP_ADMIN_PASSWORD
-search_base = ou=people,dc=salad,dc=local
+search_base = ou=people,dc=salad,dc=com
 scope = sub
 query_filter = (&(objectClass=inetOrgPerson)(mail=*@%s))
 result_attribute = mail
@@ -276,7 +276,7 @@ virtual_transport = lmtp:unix:private/dovecot-lmtp
 **Create virtual mailbox directory:**
 
 ```bash
-mkdir -p /var/mail/vhosts/salad.local
+mkdir -p /var/mail/vhosts/salad.com
 chown -R mail:mail /var/mail/vhosts
 chmod -R 770 /var/mail/vhosts
 ```
@@ -311,10 +311,10 @@ cat > /etc/dovecot/dovecot-ldap.conf.ext << 'EOF'
 # LDAP connection settings
 debug_level = 1
 hosts = 192.168.123.46:389
-dn = cn=admin,dc=salad,dc=local
+dn = cn=admin,dc=salad,dc=com
 dnpass = YOUR_LDAP_ADMIN_PASSWORD
 ldap_version = 3
-base = ou=people,dc=salad,dc=local
+base = ou=people,dc=salad,dc=com
 scope = subtree
 
 # User authentication - use password comparison (not auth_bind)
@@ -327,7 +327,7 @@ pass_filter = (&(objectClass=inetOrgPerson)(uid=%n))
 
 # User attributes
 user_attrs = \
-  =home=/var/mail/vhosts/salad.local/%n, \
+  =home=/var/mail/vhosts/salad.com/%n, \
   =uid=mail, \
   =gid=mail
 
@@ -384,7 +384,7 @@ auth_username_format = %Ln
 
 **Important:** 
 - `disable_plaintext_auth = no` allows authentication without SSL/TLS (lab only!)
-- `auth_username_format = %Ln` strips domain from email addresses (bob.senior@salad.local → bob.senior)
+- `auth_username_format = %Ln` strips domain from email addresses (bob.senior@salad.com → bob.senior)
 - Comment out ALL other auth includes to ensure only LDAP is used
 
 **Create LDAP auth configuration:**
@@ -414,7 +414,7 @@ vi /etc/dovecot/conf.d/10-mail.conf
 Change to:
 
 ```text
-mail_location = maildir:/var/mail/vhosts/salad.local/%n/Maildir
+mail_location = maildir:/var/mail/vhosts/salad.com/%n/Maildir
 mail_uid = mail
 mail_gid = mail
 first_valid_uid = 8
@@ -501,21 +501,21 @@ vi /etc/dovecot/conf.d/10-mail.conf
 Add this line after `mail_location`:
 
 ```text
-mail_location = maildir:/var/mail/vhosts/salad.local/%n/Maildir
+mail_location = maildir:/var/mail/vhosts/salad.com/%n/Maildir
 mail_uid = mail
 mail_gid = mail
 first_valid_uid = 8
 first_valid_gid = 12
 
 # Auto-create mailbox directory structure
-mail_home = /var/mail/vhosts/salad.local/%n
+mail_home = /var/mail/vhosts/salad.com/%n
 mail_plugin_dir = /usr/lib/dovecot/modules
 ```
 
 **Create base directory with proper permissions:**
 
 ```bash
-mkdir -p /var/mail/vhosts/salad.local
+mkdir -p /var/mail/vhosts/salad.com
 chown -R mail:mail /var/mail/vhosts
 chmod -R 770 /var/mail/vhosts
 ```
@@ -531,7 +531,7 @@ service dovecot restart
 **Test LDAP user lookup:**
 
 ```bash
-ldapsearch -x -H ldap://192.168.123.46 -b "ou=people,dc=salad,dc=local" "(uid=alice.dev)" mail
+ldapsearch -x -H ldap://192.168.123.46 -b "ou=people,dc=salad,dc=com" "(uid=alice.dev)" mail
 ```
 
 You should see alice.dev's email address.
@@ -539,10 +539,10 @@ You should see alice.dev's email address.
 **Test Postfix LDAP maps:**
 
 ```bash
-postmap -q alice.dev@salad.local ldap:/etc/postfix/ldap-virtual-mailbox-maps.cf
+postmap -q alice.dev@salad.com ldap:/etc/postfix/ldap-virtual-mailbox-maps.cf
 ```
 
-Should return: `alice.dev@salad.local/Maildir/`
+Should return: `alice.dev@salad.com/Maildir/`
 
 **Test Dovecot authentication:**
 
@@ -559,7 +559,7 @@ With the configuration above, mailboxes will be **automatically created** when:
 - A user first logs in via IMAP/POP3
 - A user receives their first email
 
-The mailbox directory structure (`/var/mail/vhosts/salad.local/USERNAME/Maildir/`) will be created automatically with the correct permissions (owned by `mail:mail`).
+The mailbox directory structure (`/var/mail/vhosts/salad.com/USERNAME/Maildir/`) will be created automatically with the correct permissions (owned by `mail:mail`).
 
 **No manual mailbox creation is required!** ✅
 
@@ -569,7 +569,7 @@ From host machine:
 ```bash
 telnet 192.168.123.45 25
 ```
-Type `EHLO salad.local` then `quit`.
+Type `EHLO salad.com` then `quit`.
 
 ### Test LDAP Authentication
 
@@ -577,7 +577,7 @@ Type `EHLO salad.local` then `quit`.
 
 ```bash
 # Install a mail client for testing (on your host or any VM)
-telnet mail.salad.local 143
+telnet mail.salad.com 143
 ```
 
 Then type:
@@ -593,7 +593,7 @@ You should see successful login and mailbox listing.
 
 ```bash
 # From any VM with mail utilities
-echo "Test email body" | mail -s "Test Subject" -r alice.dev@salad.local bob.senior@salad.local
+echo "Test email body" | mail -s "Test Subject" -r alice.dev@salad.com bob.senior@salad.com
 ```
 
 **Check mail logs:**

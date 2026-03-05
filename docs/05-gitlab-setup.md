@@ -1,6 +1,6 @@
 # 04 - Provisioning GitLab (Repository & CI/CD)
 
-We will provision the **Repository** VM (`repository.salad.local`). This is a **Debian 12** instance running **GitLab Omnibus**.
+We will provision the **Repository** VM (`repository.salad.com`). This is a **Debian 12** instance running **GitLab Omnibus**.
 
 ## 1. Strategy: Separate OS and Data
 
@@ -47,8 +47,8 @@ sudo virt-install \
 
 ### Installation Pointers
 Connect via `virt-viewer` or Virt-Manager.
-1.  **Hostname:** `repository.salad.local`
-2.  **Domain:** `salad.local`
+1.  **Hostname:** `repository.salad.com`
+2.  **Domain:** `salad.com`
 3.  **Root Password:** (Set securely)
 4.  **User:** `salad-admin`
 5.  **Partitioning:**
@@ -140,7 +140,7 @@ echo "nameserver 192.168.123.10" > /etc/resolv.conf
 
 **Fix /etc/hosts Conflict**:
 
-During Debian installation, the system automatically adds the hostname to `/etc/hosts` pointing to `127.0.1.1`. This causes `repository.salad.local` to resolve to a loopback address instead of `192.168.123.20`, breaking communication with other VMs and the proxy.
+During Debian installation, the system automatically adds the hostname to `/etc/hosts` pointing to `127.0.1.1`. This causes `repository.salad.com` to resolve to a loopback address instead of `192.168.123.20`, breaking communication with other VMs and the proxy.
 
 Edit `/etc/hosts`:
 ```bash
@@ -150,7 +150,7 @@ vi /etc/hosts
 Change from:
 ```
 127.0.0.1       localhost
-127.0.1.1       repository.salad.local  repository
+127.0.1.1       repository.salad.com  repository
 ```
 
 To:
@@ -158,17 +158,17 @@ To:
 127.0.0.1       localhost
 ```
 
-Remove the `127.0.1.1` line entirely. The hostname `repository.salad.local` should be resolved via DNS (which points to `192.168.123.20`).
+Remove the `127.0.1.1` line entirely. The hostname `repository.salad.com` should be resolved via DNS (which points to `192.168.123.20`).
 
 Test DNS resolution:
 ```bash
-nslookup repository.salad.local
+nslookup repository.salad.com
 ```
 
 Should return `192.168.123.20`, not `127.0.1.1`.
 
 ### 4. Enable Serial Console (Optional but Recommended)
-To allow `virsh console repository` to work, enable the serial service:
+To allow `sudo virsh console repository` to work, enable the serial service:
 ```bash
 systemctl enable --now serial-getty@ttyS0.service
 ```
@@ -181,7 +181,7 @@ curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.de
 
 Install specifying the URL. This might take a while!
 ```bash
-EXTERNAL_URL="http://repository.salad.local" apt-get install gitlab-ce
+EXTERNAL_URL="http://repository.salad.com" apt-get install gitlab-ce
 ```
 
 ### 5. Optimize Configuration
@@ -220,13 +220,13 @@ systemctl enable --now prometheus-node-exporter
 
 When integrating GitLab with Keycloak (or other external services via HTTPS), GitLab needs to trust the self-signed SSL certificate used by the Nginx proxy.
 
-**Why this is needed:** GitLab makes backend HTTPS requests to Keycloak at `https://keycloak.salad.local`. Since we use a self-signed certificate on the Nginx proxy, GitLab will reject the connection unless we explicitly trust this certificate.
+**Why this is needed:** GitLab makes backend HTTPS requests to Keycloak at `https://keycloak.salad.com`. Since we use a self-signed certificate on the Nginx proxy, GitLab will reject the connection unless we explicitly trust this certificate.
 
 **Step 1:** Get the SSL certificate from the proxy VM
 
 From the **proxy VM**, display the certificate:
 ```bash
-cat /etc/nginx/ssl/salad.local.crt
+cat /etc/nginx/ssl/salad.com.crt
 ```
 
 **Step 2:** Add the certificate to GitLab's trusted certificates
@@ -234,7 +234,7 @@ cat /etc/nginx/ssl/salad.local.crt
 On the **GitLab VM** (repository), create the certificate file:
 
 ```bash
-cat > /etc/gitlab/trusted-certs/salad.local.crt << 'EOF'
+cat > /etc/gitlab/trusted-certs/salad.com.crt << 'EOF'
 -----BEGIN CERTIFICATE-----
 MIIDkzCCAnugAwIBAgIUXPH51PKg4CXISj08Ua6arzL412swDQYJKoZIhvcNAQEL
 BQAwWTELMAkGA1UEBhMCQlIxCzAJBgNVBAgMAlNQMREwDwYDVQQHDAhTYW9QYXVs
@@ -260,12 +260,12 @@ rck3qpdm7A==
 EOF
 ```
 
-**Note:** Replace the certificate content above with your actual certificate from `/etc/nginx/ssl/salad.local.crt` on the proxy VM.
+**Note:** Replace the certificate content above with your actual certificate from `/etc/nginx/ssl/salad.com.crt` on the proxy VM.
 
 **Step 3:** Set proper permissions
 
 ```bash
-chmod 644 /etc/gitlab/trusted-certs/salad.local.crt
+chmod 644 /etc/gitlab/trusted-certs/salad.com.crt
 ```
 
 **Step 4:** Reconfigure GitLab to pick up the certificate
@@ -293,12 +293,12 @@ From your **Host Machine**:
 
 1.  **Ping:**
     ```bash
-    ping -c 2 repository.salad.local
+    ping -c 2 repository.salad.com
     ```
 2.  **Access Web Interface:**
-    Open `http://repository.salad.local` in your browser (if you have one configured) or `curl` it:
+    Open `http://repository.salad.com` in your browser (if you have one configured) or `curl` it:
     ```bash
-    curl -I http://repository.salad.local
+    curl -I http://repository.salad.com
     ```
 
     *First load might be slow (502 Gateway) while Unicorn/Puma starts.*
