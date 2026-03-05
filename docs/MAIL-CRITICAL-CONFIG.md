@@ -18,8 +18,8 @@ apk add openldap-clients postfix-ldap dovecot-ldap
 ### 1. Basic Settings
 
 ```text
-myhostname = mail.salad.local
-mydomain = salad.local
+myhostname = mail.salad.com
+mydomain = salad.com
 myorigin = $mydomain
 inet_interfaces = all
 inet_protocols = ipv4
@@ -27,8 +27,8 @@ mydestination = localhost
 mynetworks = 127.0.0.0/8 192.168.123.0/24
 ```
 
-**Critical:** `mydestination = localhost` (NOT including `salad.local`)
-- `salad.local` must ONLY be in `virtual_mailbox_domains`
+**Critical:** `mydestination = localhost` (NOT including `salad.com`)
+- `salad.com` must ONLY be in `virtual_mailbox_domains`
 - Including it in both causes "unknown user" errors
 
 ### 2. Virtual Mailbox Settings
@@ -84,7 +84,7 @@ auth_username_format = %Ln
 
 **Critical:**
 - `disable_plaintext_auth = no` - Required for non-SSL connections
-- `auth_username_format = %Ln` - Strips `@salad.local` from usernames
+- `auth_username_format = %Ln` - Strips `@salad.com` from usernames
 - Comment out ALL other auth includes
 
 ### 3. LDAP Configuration (`/etc/dovecot/dovecot-ldap.conf.ext`)
@@ -93,10 +93,10 @@ auth_username_format = %Ln
 # LDAP connection settings
 debug_level = 1
 hosts = 192.168.123.46:389
-dn = cn=admin,dc=salad,dc=local
+dn = cn=admin,dc=salad,dc=com
 dnpass = YOUR_LDAP_ADMIN_PASSWORD
 ldap_version = 3
-base = ou=people,dc=salad,dc=local
+base = ou=people,dc=salad,dc=com
 scope = subtree
 
 # User authentication - use password comparison
@@ -108,7 +108,7 @@ pass_filter = (&(objectClass=inetOrgPerson)(uid=%n))
 
 # User attributes
 user_attrs = \
-  =home=/var/mail/vhosts/salad.local/%n, \
+  =home=/var/mail/vhosts/salad.com/%n, \
   =uid=mail, \
   =gid=mail
 
@@ -125,7 +125,7 @@ iterate_filter = (objectClass=inetOrgPerson)
 ```
 
 **Critical:**
-- Use IP address `192.168.123.46` not `ldap.salad.local` (DNS resolution issue)
+- Use IP address `192.168.123.46` not `ldap.salad.com` (DNS resolution issue)
 - `auth_bind = no` - Alpine's Dovecot doesn't support `%{ldap:dn}` variable
 - `userPassword=password` in `pass_attrs` for password comparison
 
@@ -158,12 +158,12 @@ service lmtp {
 ### 6. Mail Location (`/etc/dovecot/conf.d/10-mail.conf`)
 
 ```text
-mail_location = maildir:/var/mail/vhosts/salad.local/%n/Maildir
+mail_location = maildir:/var/mail/vhosts/salad.com/%n/Maildir
 mail_uid = mail
 mail_gid = mail
 first_valid_uid = 8
 first_valid_gid = 12
-mail_home = /var/mail/vhosts/salad.local/%n
+mail_home = /var/mail/vhosts/salad.com/%n
 ```
 
 ### 7. Mailbox Auto-Creation (`/etc/dovecot/conf.d/15-mailboxes.conf`)
@@ -196,7 +196,7 @@ namespace inbox {
 ## ✅ Directory Setup
 
 ```bash
-mkdir -p /var/mail/vhosts/salad.local
+mkdir -p /var/mail/vhosts/salad.com
 chown -R mail:mail /var/mail/vhosts
 chmod -R 770 /var/mail/vhosts
 ```
@@ -234,21 +234,21 @@ Should return: `passdb: bob.senior auth succeeded`
 ### Test LDAP Lookup
 
 ```bash
-ldapsearch -x -H ldap://192.168.123.46 -b "ou=people,dc=salad,dc=local" "(uid=alice.dev)" mail
+ldapsearch -x -H ldap://192.168.123.46 -b "ou=people,dc=salad,dc=com" "(uid=alice.dev)" mail
 ```
 
 ### Test Postfix LDAP Maps
 
 ```bash
-postmap -q alice.dev@salad.local ldap:/etc/postfix/ldap-virtual-mailbox-maps.cf
+postmap -q alice.dev@salad.com ldap:/etc/postfix/ldap-virtual-mailbox-maps.cf
 ```
 
-Should return: `alice.dev@salad.local/Maildir/`
+Should return: `alice.dev@salad.com/Maildir/`
 
 ### Send Test Email
 
 ```bash
-echo "Test message" | mail -s "Test" -r charlie.dev@salad.local alice.dev@salad.local
+echo "Test message" | mail -s "Test" -r charlie.dev@salad.com alice.dev@salad.com
 ```
 
 ### Check Logs
@@ -260,7 +260,7 @@ tail -f /var/log/messages | grep -E "(postfix|dovecot)"
 ### Check Mailbox Created
 
 ```bash
-ls -la /var/mail/vhosts/salad.local/alice.dev/Maildir/new/
+ls -la /var/mail/vhosts/salad.com/alice.dev/Maildir/new/
 ```
 
 ---
@@ -269,7 +269,7 @@ ls -la /var/mail/vhosts/salad.local/alice.dev/Maildir/new/
 
 ### Issue: "unknown user" in Postfix logs
 
-**Cause:** `salad.local` is in both `mydestination` and `virtual_mailbox_domains`
+**Cause:** `salad.com` is in both `mydestination` and `virtual_mailbox_domains`
 
 **Fix:** Set `mydestination = localhost` in `/etc/postfix/main.cf`
 
@@ -321,7 +321,7 @@ service dovecot restart
 - [ ] Set `disable_plaintext_auth = no` in Dovecot auth config
 - [ ] Add `auth_username_format = %Ln` in Dovecot auth config
 - [ ] Comment out all non-LDAP auth includes
-- [ ] Create `/var/mail/vhosts/salad.local` directory
+- [ ] Create `/var/mail/vhosts/salad.com` directory
 - [ ] Verify LMTP socket exists
 - [ ] Test LDAP authentication with `doveadm auth test`
 - [ ] Send test email and verify delivery
@@ -332,7 +332,7 @@ service dovecot restart
 
 ✅ `doveadm auth test bob.senior <user-password>` succeeds  
 ✅ LMTP socket exists at `/var/spool/postfix/private/dovecot-lmtp`  
-✅ Test email delivers to `/var/mail/vhosts/salad.local/USERNAME/Maildir/new/`  
+✅ Test email delivers to `/var/mail/vhosts/salad.com/USERNAME/Maildir/new/`  
 ✅ Thunderbird can connect via IMAP (port 143) and send via SMTP (port 25)  
 ✅ Mailboxes auto-create on first login or email receipt  
 ✅ No "unknown user" errors in Postfix logs  

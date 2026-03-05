@@ -1,20 +1,20 @@
 # 13 - Deploying a Java/Spring Boot Application
 
-This guide covers how to package a Java/Spring Boot REST API as a Docker image and deploy it to the **containerization VM** (`containerization.salad.local`) using Docker Swarm, with Traefik handling internal routing and Nginx providing SSL termination.
+This guide covers how to package a Java/Spring Boot REST API as a Docker image and deploy it to the **containerization VM** (`containerization.salad.com`) using Docker Swarm, with Traefik handling internal routing and Nginx providing SSL termination.
 
 ## Architecture Overview
 
 ```
 User Browser
-    ↓ https://demo-api.app.salad.local
-Nginx (proxy.salad.local:443)     ← SSL termination, wildcard *.app.salad.local
-    ↓ http://containerization.salad.local:80
-Traefik (containerization.salad.local)  ← routes by Host header
+    ↓ https://demo-api.app.salad.com
+Nginx (proxy.salad.com:443)     ← SSL termination, wildcard *.app.salad.com
+    ↓ http://containerization.salad.com:80
+Traefik (containerization.salad.com)  ← routes by Host header
     ↓ http://container:8080
 Spring Boot App (Docker Swarm container)
 ```
 
-**DNS resolution:** `*.app.salad.local` → `192.168.123.30` (Nginx) is already configured in dnsmasq. No DNS change is needed for new apps — just pick a unique subdomain.
+**DNS resolution:** `*.app.salad.com` → `192.168.123.30` (Nginx) is already configured in dnsmasq. No DNS change is needed for new apps — just pick a unique subdomain.
 
 ---
 
@@ -98,22 +98,22 @@ docker build -t demo-api:1.0.0 .
 
 ### 4.2. Tag and Push to Artifactory
 
-Artifactory acts as our Docker registry at `artifact-repository.salad.local`.
+Artifactory acts as our Docker registry at `artifact-repository.salad.com`.
 
 Log in to the registry:
 ```bash
-docker login artifact-repository.salad.local:8083
+docker login artifact-repository.salad.com:8083
 ```
 *Use your Artifactory credentials (admin or dedicated CI user).*
 
 Tag the image:
 ```bash
-docker tag demo-api:1.0.0 artifact-repository.salad.local:8083/docker-local/demo-api:1.0.0
+docker tag demo-api:1.0.0 artifact-repository.salad.com:8083/docker-local/demo-api:1.0.0
 ```
 
 Push:
 ```bash
-docker push artifact-repository.salad.local:8083/docker-local/demo-api:1.0.0
+docker push artifact-repository.salad.com:8083/docker-local/demo-api:1.0.0
 ```
 
 ---
@@ -129,7 +129,7 @@ version: '3.8'
 
 services:
   demo-api:
-    image: artifact-repository.salad.local:8083/docker-local/demo-api:1.0.0
+    image: artifact-repository.salad.com:8083/docker-local/demo-api:1.0.0
     networks:
       - traefik-public
     deploy:
@@ -141,8 +141,8 @@ services:
         - "traefik.enable=true"
 
         # Router: match requests by hostname
-        # Change 'demo-api' to your app name, keep the .app.salad.local suffix
-        - "traefik.http.routers.demo-api.rule=Host(`demo-api.app.salad.local`)"
+        # Change 'demo-api' to your app name, keep the .app.salad.com suffix
+        - "traefik.http.routers.demo-api.rule=Host(`demo-api.app.salad.com`)"
 
         # Entrypoint: Traefik listens on 'web' (port 80, HTTP from Nginx)
         - "traefik.http.routers.demo-api.entrypoints=web"
@@ -168,12 +168,12 @@ networks:
 SSH into the **containerization VM**:
 
 ```bash
-ssh root@containerization.salad.local
+ssh root@containerization.salad.com
 ```
 
 Pull the image (ensures the latest version is available):
 ```bash
-docker pull artifact-repository.salad.local:8083/docker-local/demo-api:1.0.0
+docker pull artifact-repository.salad.com:8083/docker-local/demo-api:1.0.0
 ```
 
 Deploy the stack:
@@ -189,7 +189,7 @@ docker stack services demo-api
 Expected output:
 ```
 ID             NAME               MODE         REPLICAS   IMAGE
-xxxxxxxxxxxx   demo-api_demo-api  replicated   1/1        artifact-repository.salad.local:8083/docker-local/demo-api:1.0.0
+xxxxxxxxxxxx   demo-api_demo-api  replicated   1/1        artifact-repository.salad.com:8083/docker-local/demo-api:1.0.0
 ```
 
 `1/1` means 1 replica is running out of 1 desired.
@@ -200,7 +200,7 @@ xxxxxxxxxxxx   demo-api_demo-api  replicated   1/1        artifact-repository.sa
 
 ### 7.1. Check Traefik Registered the Route
 
-Traefik's dashboard is available at `https://traefik.salad.local`:
+Traefik's dashboard is available at `https://traefik.salad.com`:
 
 1. Go to **HTTP → Routers** — you should see `demo-api` listed.
 2. Go to **HTTP → Services** — you should see `demo-api` with a healthy backend.
@@ -214,7 +214,7 @@ curl -s http://localhost:8080/api/http/routers | python3 -m json.tool | grep dem
 
 From your host machine:
 ```bash
-curl -k https://demo-api.app.salad.local/actuator/health
+curl -k https://demo-api.app.salad.com/actuator/health
 ```
 
 Expected:
@@ -224,7 +224,7 @@ Expected:
 
 Without the `-k` flag (if the SSL certificate is trusted system-wide):
 ```bash
-curl https://demo-api.app.salad.local/actuator/health
+curl https://demo-api.app.salad.com/actuator/health
 ```
 
 ### 7.3. Check Container Logs
@@ -242,8 +242,8 @@ To deploy a new version:
 ```bash
 # Build and push the new image
 docker build -t demo-api:1.0.1 .
-docker tag demo-api:1.0.1 artifact-repository.salad.local:8083/docker-local/demo-api:1.0.1
-docker push artifact-repository.salad.local:8083/docker-local/demo-api:1.0.1
+docker tag demo-api:1.0.1 artifact-repository.salad.com:8083/docker-local/demo-api:1.0.1
+docker push artifact-repository.salad.com:8083/docker-local/demo-api:1.0.1
 ```
 
 Update the stack file image tag and redeploy:
@@ -259,7 +259,7 @@ Swarm performs a **rolling update** — the old container stays up until the new
 ## 9. Deploying Multiple Apps
 
 Each new app just needs:
-1. A **unique subdomain** under `*.app.salad.local` (e.g. `billing-api.app.salad.local`)
+1. A **unique subdomain** under `*.app.salad.com` (e.g. `billing-api.app.salad.com`)
 2. A **unique Traefik router name** in the labels (e.g. `demo-api` → `billing-api`)
 3. Its own **stack file**
 
@@ -271,7 +271,7 @@ No DNS changes, no Nginx changes, no Traefik config changes — Traefik discover
 deploy:
   labels:
     - "traefik.enable=true"
-    - "traefik.http.routers.billing-api.rule=Host(`billing-api.app.salad.local`)"
+    - "traefik.http.routers.billing-api.rule=Host(`billing-api.app.salad.com`)"
     - "traefik.http.routers.billing-api.entrypoints=web"
     - "traefik.http.services.billing-api.loadbalancer.server.port=8080"
 ```
@@ -307,5 +307,5 @@ docker service logs demo-api_demo-api
 ### Image pull fails (registry auth)
 ```bash
 # Log in to Artifactory on the containerization VM
-docker login artifact-repository.salad.local:8083
+docker login artifact-repository.salad.com:8083
 ```

@@ -79,15 +79,15 @@ User → Keycloak (SSO Login) → LDAP (Verify User) → Keycloak (Issue Token) 
 
 | Component | What It Does | Where |
 |-----------|--------------|-------|
-| **OpenLDAP** | Stores users, groups, roles | `ldap.salad.local` |
-| **LAM** | Web UI to manage LDAP | `http://lam.salad.local` |
-| **Keycloak** | SSO/Identity Provider | `https://keycloak.salad.local` |
+| **OpenLDAP** | Stores users, groups, roles | `ldap.salad.com` |
+| **LAM** | Web UI to manage LDAP | `http://lam.salad.com` |
+| **Keycloak** | SSO/Identity Provider | `https://keycloak.salad.com` |
 | **SSSD** | LDAP auth on VMs | Each VM |
 
 ### LDAP Structure
 
 ```
-dc=salad,dc=local
+dc=salad,dc=com
 ├── ou=people                    # All users
 │   ├── ou=team-alpha           # Team Alpha members
 │   ├── ou=team-beta            # Team Beta members
@@ -147,7 +147,7 @@ Follow `docs/07-ldap-setup.md`:
 **Quick Test:**
 ```bash
 # From your host machine
-ldapsearch -x -H ldap://ldap.salad.local -b "dc=salad,dc=local"
+ldapsearch -x -H ldap://ldap.salad.com -b "dc=salad,dc=com"
 ```
 
 ### Step 2: Set Up Keycloak (45-90 minutes)
@@ -166,7 +166,7 @@ Follow `docs/10-sso-keycloak-setup.md`:
 **Quick Test:**
 ```bash
 # Open Keycloak admin console
-https://keycloak.salad.local/admin
+https://keycloak.salad.com/admin
 
 # Login and check:
 # - Users are synced from LDAP
@@ -187,7 +187,7 @@ Follow `docs/11-rbac-implementation-guide.md` section 7.3:
 **Quick Test:**
 ```bash
 # Try logging into GitLab with SSO
-https://gitlab.salad.local
+https://gitlab.salad.com
 # Click "Salad SSO" button
 # Login with alice.dev credentials
 ```
@@ -206,7 +206,7 @@ For each VM:
 **Quick Test:**
 ```bash
 # From your host machine
-ssh alice.dev@containerization.salad.local
+ssh alice.dev@containerization.salad.com
 # Should work if alice.dev is in ssh-developers group
 ```
 
@@ -235,7 +235,7 @@ ssh alice.dev@containerization.salad.local
 
 ### Adding a New User
 
-1. **In LAM** (`http://lam.salad.local`):
+1. **In LAM** (`http://lam.salad.com`):
    - Navigate to the user's team OU (e.g., `ou=team-alpha,ou=people`)
    - Create new user with uid, name, email, password
    - Add to role group (e.g., `cn=developers`)
@@ -280,10 +280,10 @@ ssh alice.dev@containerization.salad.local
 **Problem**: Cannot connect to LDAP
 ```bash
 # Test connectivity
-ldapsearch -x -H ldap://ldap.salad.local -b "dc=salad,dc=local"
+ldapsearch -x -H ldap://ldap.salad.com -b "dc=salad,dc=com"
 
 # Check LDAP service
-ssh ldap.salad.local
+ssh ldap.salad.com
 systemctl status slapd
 journalctl -u slapd -f
 ```
@@ -291,7 +291,7 @@ journalctl -u slapd -f
 **Problem**: User not found
 ```bash
 # Search for user
-ldapsearch -x -H ldap://ldap.salad.local -b "dc=salad,dc=local" "(uid=alice.dev)"
+ldapsearch -x -H ldap://ldap.salad.com -b "dc=salad,dc=com" "(uid=alice.dev)"
 ```
 
 ### Keycloak Issues
@@ -343,7 +343,7 @@ cat /etc/sudoers.d/ldap-groups
 ## 🎓 Learning Resources
 
 ### LDAP Basics
-- **What is DN?** Distinguished Name - full path to an entry (e.g., `uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=local`)
+- **What is DN?** Distinguished Name - full path to an entry (e.g., `uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=com`)
 - **What is CN?** Common Name - identifies an entry (e.g., `cn=developers`)
 - **What is OU?** Organizational Unit - container for organizing entries (e.g., `ou=people`)
 - **What is objectClass?** Defines the type of entry (e.g., `inetOrgPerson` for users, `groupOfNames` for groups)
@@ -368,7 +368,7 @@ Use this checklist to track your progress:
 ### LDAP Setup
 - [ ] OpenLDAP installed and running
 - [ ] LAM installed and accessible
-- [ ] Base DN configured (`dc=salad,dc=local`)
+- [ ] Base DN configured (`dc=salad,dc=com`)
 - [ ] OUs created (people, groups, roles)
 - [ ] Team OUs created under people
 - [ ] Service access groups created

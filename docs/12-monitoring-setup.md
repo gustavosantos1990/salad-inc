@@ -1,6 +1,6 @@
 # 12 - Provisioning Monitoring Server (Prometheus + Grafana + Loki)
 
-We will provision the **Monitor** VM (`monitor.salad.local`). This is a **Debian 12** instance running **Prometheus** (metrics collection), **Grafana** (visualization), and **Loki** (log aggregation) for full observability of the Salad.Inc infrastructure.
+We will provision the **Monitor** VM (`monitor.salad.com`). This is a **Debian 12** instance running **Prometheus** (metrics collection), **Grafana** (visualization), and **Loki** (log aggregation) for full observability of the Salad.Inc infrastructure.
 
 ## 1. VM Directory Structure
 
@@ -40,8 +40,8 @@ virt-viewer --connect qemu:///system --wait monitor
 ```
 
 ### Installation Pointers
-1.  **Hostname:** `monitor.salad.local`
-2.  **Domain:** `salad.local`
+1.  **Hostname:** `monitor.salad.com`
+2.  **Domain:** `salad.com`
 3.  **Partitioning:** Standard / (Root).
 4.  **Software Selection:**
     *   [X] SSH server
@@ -74,7 +74,7 @@ Edit `/etc/hosts` and remove/change the `127.0.1.1` line:
 ```bash
 vi /etc/hosts
 ```
-Remove/comment: `127.0.1.1 monitor.salad.local monitor`
+Remove/comment: `127.0.1.1 monitor.salad.com monitor`
 
 **Enable Serial Console**:
 ```bash
@@ -154,27 +154,27 @@ scrape_configs:
 
   - job_name: "dns"
     static_configs:
-      - targets: ["dns.salad.local:9100"]
+      - targets: ["dns.salad.com:9100"]
 
   - job_name: "repository"
     static_configs:
-      - targets: ["repository.salad.local:9100"]
+      - targets: ["repository.salad.com:9100"]
 
   - job_name: "database"
     static_configs:
-      - targets: ["database.salad.local:9100"]
+      - targets: ["database.salad.com:9100"]
 
   - job_name: "containerization"
     static_configs:
-      - targets: ["containerization.salad.local:9100"]
+      - targets: ["containerization.salad.com:9100"]
 
   - job_name: "artifact-repository"
     static_configs:
-      - targets: ["artifact-repository.salad.local:9100"]
+      - targets: ["artifact-repository.salad.com:9100"]
 
   - job_name: "proxy"
     static_configs:
-      - targets: ["proxy.salad.local:9100"]
+      - targets: ["proxy.salad.com:9100"]
 
   - job_name: "monitor"
     static_configs:
@@ -182,15 +182,15 @@ scrape_configs:
 
   - job_name: "sso"
     static_configs:
-      - targets: ["sso.salad.local:9100"]
+      - targets: ["sso.salad.com:9100"]
 
   - job_name: "mail"
     static_configs:
-      - targets: ["mail.salad.local:9100"]
+      - targets: ["mail.salad.com:9100"]
 
   - job_name: "ldap"
     static_configs:
-      - targets: ["ldap.salad.local:9100"]
+      - targets: ["ldap.salad.com:9100"]
 EOF
 ```
 
@@ -292,7 +292,7 @@ Then add the scrape target to `/etc/prometheus/prometheus.yml` on the monitor VM
 ```yaml
   - job_name: "process-artifact-repository"
     static_configs:
-      - targets: ["artifact-repository.salad.local:9256"]
+      - targets: ["artifact-repository.salad.com:9256"]
 ```
 
 Reload Prometheus:
@@ -440,7 +440,7 @@ apt-get install -y grafana
 
 ### 3. Configure Grafana
 
-**Prerequisite:** Ensure the `grafana` database and user have been created on `database.salad.local` as described in `docs/09-database-setup.md` (section 6).
+**Prerequisite:** Ensure the `grafana` database and user have been created on `database.salad.com` as described in `docs/09-database-setup.md` (section 6).
 
 Edit `/etc/grafana/grafana.ini`:
 
@@ -454,12 +454,12 @@ Update the following settings:
 [server]
 http_addr = 0.0.0.0
 http_port = 3000
-domain = grafana.salad.local
-root_url = https://grafana.salad.local/
+domain = grafana.salad.com
+root_url = https://grafana.salad.com/
 
 [database]
 type = postgres
-host = database.salad.local:5432
+host = database.salad.com:5432
 name = grafana
 user = grafana
 password = grafana_password
@@ -482,7 +482,7 @@ systemctl enable --now grafana-server
 
 ## 9. Configure Grafana Data Sources
 
-Once Grafana is running, access it at `https://grafana.salad.local` (through Nginx proxy) or directly at `http://monitor.salad.local:3000`.
+Once Grafana is running, access it at `https://grafana.salad.com` (through Nginx proxy) or directly at `http://monitor.salad.com:3000`.
 
 ### 9.1. Add Prometheus Data Source
 
@@ -551,7 +551,7 @@ scrape_configs:
           - localhost
         labels:
           job: varlogs
-          host: ${HOSTNAME}.salad.local
+          host: ${HOSTNAME}.salad.com
           __path__: /var/log/*log
 EOF
 ```
@@ -616,7 +616,7 @@ scrape_configs:
           - localhost
         labels:
           job: varlogs
-          host: ${HOSTNAME}.salad.local
+          host: ${HOSTNAME}.salad.com
           __path__: /var/log/*log
 EOF
 ```
@@ -641,13 +641,13 @@ rc-update add promtail default
 rc-service promtail start
 ```
 
-## 11. Configure Nginx Proxy (on proxy.salad.local)
+## 11. Configure Nginx Proxy (on proxy.salad.com)
 
 The Grafana block is **already included** in `services.conf` (see `docs/03-proxy-config.md`). No separate file is needed.
 
 > **Why not use a separate `upstream` block?**
 > Nginx resolves hostnames in `upstream` blocks **once at startup**. If the monitor VM is not yet running when Nginx starts, you get:
-> `nginx: [emerg] host not found in upstream "monitor.salad.local"`
+> `nginx: [emerg] host not found in upstream "monitor.salad.com"`
 > The `set $backend ...` variable pattern (used throughout `services.conf`) forces Nginx to resolve the hostname **at request time**, so Nginx starts successfully even if the backend VM is temporarily down.
 
 The relevant block already in `services.conf`:
@@ -659,19 +659,19 @@ resolver 192.168.123.10 valid=30s ipv6=off;
 # Grafana
 server {
     listen 80;
-    server_name grafana.salad.local;
+    server_name grafana.salad.com;
     return 301 https://$server_name$request_uri;
 }
 
 server {
     listen 443 ssl;
-    server_name grafana.salad.local;
+    server_name grafana.salad.com;
 
-    ssl_certificate /etc/nginx/ssl/salad.local.crt;
-    ssl_certificate_key /etc/nginx/ssl/salad.local.key;
+    ssl_certificate /etc/nginx/ssl/salad.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
     location / {
-        set $backend_grafana monitor.salad.local:3000;
+        set $backend_grafana monitor.salad.com:3000;
         proxy_pass http://$backend_grafana;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -681,7 +681,7 @@ server {
 
     # WebSocket support (required for Grafana Live)
     location /api/live/ {
-        set $backend_grafana monitor.salad.local:3000;
+        set $backend_grafana monitor.salad.com:3000;
         proxy_pass http://$backend_grafana;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -723,7 +723,7 @@ Once Keycloak is set up (see `docs/10-sso-keycloak-setup.md`), configure Grafana
 
 ### 13.1. Get the Client Secret from Keycloak
 
-1. Log in to the Keycloak Admin Console (`https://keycloak.salad.local/admin`).
+1. Log in to the Keycloak Admin Console (`https://keycloak.salad.com/admin`).
 2. Select the **salad** realm.
 3. Go to **Clients** → click on **grafana**.
 4. Click the **Credentials** tab.
@@ -743,9 +743,9 @@ client_id = grafana
 ; client_secret is copied from: Keycloak Admin → salad realm → Clients → grafana → Credentials tab
 client_secret = <paste_secret_from_keycloak_here>
 scopes = openid profile email
-auth_url = https://keycloak.salad.local/realms/salad/protocol/openid-connect/auth
-token_url = https://keycloak.salad.local/realms/salad/protocol/openid-connect/token
-api_url = https://keycloak.salad.local/realms/salad/protocol/openid-connect/userinfo
+auth_url = https://keycloak.salad.com/realms/salad/protocol/openid-connect/auth
+token_url = https://keycloak.salad.com/realms/salad/protocol/openid-connect/token
+api_url = https://keycloak.salad.com/realms/salad/protocol/openid-connect/userinfo
 ; Maps Keycloak roles (from LDAP groups) to Grafana roles
 role_attribute_path = contains(roles[*], 'grafana-admin') && 'Admin' || contains(roles[*], 'grafana-user') && 'Viewer'
 ```
@@ -776,4 +776,4 @@ From your host machine:
     ```
 
 4.  **Grafana UI**:
-    Open `https://grafana.salad.local` in your browser and log in.
+    Open `https://grafana.salad.com` in your browser and log in.

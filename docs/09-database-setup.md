@@ -1,6 +1,6 @@
 # 09 - Provisioning Database Server (PostgreSQL)
 
-We will provision the **Database** VM (`database.salad.local`). This is a **Debian 12** instance that serves as the central relational database for our applications (Keycloak, SonarQube, etc.).
+We will provision the **Database** VM (`database.salad.com`). This is a **Debian 12** instance that serves as the central relational database for our applications (Keycloak, SonarQube, etc.).
 
 ## 1. VM Directory Structure
 
@@ -44,8 +44,8 @@ virt-viewer --connect qemu:///system --wait database
 ```
 
 ### Installation Pointers
-1.  **Hostname:** `database.salad.local`
-2.  **Domain:** `salad.local`
+1.  **Hostname:** `database.salad.com`
+2.  **Domain:** `salad.com`
 3.  **Partitioning:** Standard / (Root). We will format the data disk later.
 4.  **Software Selection:**
     *   [X] SSH server
@@ -76,7 +76,7 @@ echo "nameserver 192.168.123.10" > /etc/resolv.conf
 Edit `/etc/hosts` and remove/change the `127.0.1.1` line:
 ```
 127.0.0.1       localhost
-# 127.0.1.1     database.salad.local database  <-- Remove this line or comments
+# 127.0.1.1     database.salad.com database  <-- Remove this line or comments
 ```
 
 **Enable Serial Console** (Optional but good for troubleshooting):

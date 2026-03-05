@@ -1,6 +1,6 @@
 # 01 - Network Configuration
 
-This step establishes the virtual network infrastructure for Salad Inc. We will create a NAT-based network bridge (`virbr1`) using Libvirt/QEMU and configure the host system to resolve the internal `.salad.local` domain.
+This step establishes the virtual network infrastructure for Salad Inc. We will create a NAT-based network bridge (`virbr1`) using Libvirt/QEMU and configure the host system to resolve the internal `.salad.com` domain.
 
 ## 0. Prerequisite: Cleanup (Optional)
 
@@ -26,41 +26,41 @@ We define a network named `salad-net` with the CIDR `192.168.123.0/24`. We use d
 <network>
   <name>salad-net</name>
   <bridge name='virbr1' stp='on' delay='0'/>
-  <domain name='salad.local'/>
+  <domain name='salad.com'/>
   <forward mode='nat'/>
   <dns>
     <!-- Static DNS entries for infrastructure services -->
     <host ip='192.168.123.10'>
       <hostname>dns</hostname>
-      <hostname>dns.salad.local</hostname>
+      <hostname>dns.salad.com</hostname>
     </host>
     <host ip='192.168.123.20'>
       <hostname>repository</hostname>
-      <hostname>repository.salad.local</hostname>
+      <hostname>repository.salad.com</hostname>
     </host>
     <host ip='192.168.123.21'>
       <hostname>database</hostname>
-      <hostname>database.salad.local</hostname>
+      <hostname>database.salad.com</hostname>
     </host>
     <host ip='192.168.123.22'>
       <hostname>containerization</hostname>
-      <hostname>containerization.salad.local</hostname>
+      <hostname>containerization.salad.com</hostname>
     </host>
     <host ip='192.168.123.23'>
       <hostname>artifactory</hostname>
-      <hostname>nexus.salad.local</hostname>
+      <hostname>nexus.salad.com</hostname>
     </host>
     <host ip='192.168.123.30'>
       <hostname>proxy</hostname>
-      <hostname>proxy.salad.local</hostname>
+      <hostname>proxy.salad.com</hostname>
     </host>
     <host ip='192.168.123.31'>
       <hostname>monitor</hostname>
-      <hostname>monitor.salad.local</hostname>
+      <hostname>monitor.salad.com</hostname>
     </host>
     <host ip='192.168.123.41'>
       <hostname>sso</hostname>
-      <hostname>sso.salad.local</hostname>
+      <hostname>sso.salad.com</hostname>
     </host>
   </dns>
   <ip address='192.168.123.1' netmask='255.255.255.0'>

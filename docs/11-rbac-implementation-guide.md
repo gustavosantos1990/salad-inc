@@ -43,9 +43,9 @@ This document provides a comprehensive overview of the RBAC implementation for S
 
 | Component | Purpose | Location |
 |-----------|---------|----------|
-| **OpenLDAP** | User directory, groups, roles | `ldap.salad.local` |
-| **LAM** | Web UI for LDAP management | `http://lam.salad.local` |
-| **Keycloak** | SSO/Identity Provider | `https://keycloak.salad.local` |
+| **OpenLDAP** | User directory, groups, roles | `ldap.salad.com` |
+| **LAM** | Web UI for LDAP management | `http://lam.salad.com` |
+| **Keycloak** | SSO/Identity Provider | `https://keycloak.salad.com` |
 | **SSSD** | LDAP authentication on VMs | Installed on each VM |
 
 ## 2. LDAP Directory Structure
@@ -53,7 +53,7 @@ This document provides a comprehensive overview of the RBAC implementation for S
 ### 2.1. Complete Hierarchy
 
 ```
-dc=salad,dc=local
+dc=salad,dc=com
 │
 ├── ou=people                           # All users
 │   ├── ou=team-alpha                  # Team Alpha members
@@ -101,7 +101,7 @@ dc=salad,dc=local
 Each user entry contains:
 
 ```ldif
-dn: uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=local
+dn: uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=com
 objectClass: inetOrgPerson
 objectClass: posixAccount
 objectClass: shadowAccount
@@ -109,7 +109,7 @@ uid: alice.dev                          # Username
 cn: Alice Developer                     # Full name
 givenName: Alice                        # First name
 sn: Developer                           # Last name
-mail: alice.dev@salad.local            # Email
+mail: alice.dev@salad.com            # Email
 uidNumber: 10001                        # UNIX UID
 gidNumber: 10001                        # UNIX GID
 homeDirectory: /home/alice.dev          # Home directory
@@ -122,13 +122,13 @@ userPassword: {SSHA}...                 # Hashed password
 Groups use `groupOfNames` objectClass:
 
 ```ldif
-dn: cn=gitlab-users,ou=service-access,ou=groups,dc=salad,dc=local
+dn: cn=gitlab-users,ou=service-access,ou=groups,dc=salad,dc=com
 objectClass: groupOfNames
 cn: gitlab-users
 description: Users with GitLab access
-member: uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=local
-member: uid=bob.senior,ou=team-alpha,ou=people,dc=salad,dc=local
-member: uid=charlie.dev,ou=team-beta,ou=people,dc=salad,dc=local
+member: uid=alice.dev,ou=team-alpha,ou=people,dc=salad,dc=com
+member: uid=bob.senior,ou=team-alpha,ou=people,dc=salad,dc=com
+member: uid=charlie.dev,ou=team-beta,ou=people,dc=salad,dc=com
 ```
 
 ## 3. Keycloak Configuration
@@ -146,19 +146,19 @@ Keycloak syncs users and groups from LDAP:
 |---------|-------|
 | **Provider** | ldap-salad |
 | **Edit Mode** | READ_ONLY |
-| **Connection URL** | ldap://ldap.salad.local:389 |
-| **Users DN** | ou=people,dc=salad,dc=local |
-| **Bind DN** | cn=admin,dc=salad,dc=local |
+| **Connection URL** | ldap://ldap.salad.com:389 |
+| **Users DN** | ou=people,dc=salad,dc=com |
+| **Bind DN** | cn=admin,dc=salad,dc=com |
 | **Search Scope** | Subtree |
 
 ### 3.3. Group Mappers
 
 Four LDAP group mappers sync different group OUs:
 
-1. **service-access-mapper**: `ou=service-access,ou=groups,dc=salad,dc=local`
-2. **ssh-access-mapper**: `ou=ssh-access,ou=groups,dc=salad,dc=local`
-3. **gitlab-access-mapper**: `ou=gitlab-access,ou=groups,dc=salad,dc=local`
-4. **roles-mapper**: `ou=roles,dc=salad,dc=local`
+1. **service-access-mapper**: `ou=service-access,ou=groups,dc=salad,dc=com`
+2. **ssh-access-mapper**: `ou=ssh-access,ou=groups,dc=salad,dc=com`
+3. **gitlab-access-mapper**: `ou=gitlab-access,ou=groups,dc=salad,dc=com`
+4. **roles-mapper**: `ou=roles,dc=salad,dc=com`
 
 ### 3.4. Keycloak Roles
 
@@ -203,13 +203,13 @@ Each service has a client in Keycloak:
 
 | Client ID | Service | Redirect URI |
 |-----------|---------|--------------|
-| `gitlab` | GitLab | `https://gitlab.salad.local/users/auth/openid_connect/callback` |
-| `grafana` | Grafana | `https://grafana.salad.local/login/generic_oauth` |
-| `portainer` | Portainer | `https://portainer.salad.local/*` |
-| `nexus` | Nexus | `https://nexus.salad.local/ui/login` |
-| `prometheus` | Prometheus (via OAuth2 Proxy) | `https://prometheus.salad.local/oauth2/callback` |
-| `traefik` | Traefik (via OAuth2 Proxy) | `https://traefik.salad.local/oauth2/callback` |
-| `lam` | LAM | `https://lam.salad.local/*` |
+| `gitlab` | GitLab | `https://gitlab.salad.com/users/auth/openid_connect/callback` |
+| `grafana` | Grafana | `https://grafana.salad.com/login/generic_oauth` |
+| `portainer` | Portainer | `https://portainer.salad.com/*` |
+| `nexus` | Nexus | `https://nexus.salad.com/ui/login` |
+| `prometheus` | Prometheus (via OAuth2 Proxy) | `https://prometheus.salad.com/oauth2/callback` |
+| `traefik` | Traefik (via OAuth2 Proxy) | `https://traefik.salad.com/oauth2/callback` |
+| `lam` | LAM | `https://lam.salad.com/*` |
 
 ## 4. Service Integration Matrix
 
@@ -259,15 +259,15 @@ Each VM runs SSSD to authenticate against LDAP:
 ```ini
 [sssd]
 services = nss, pam, ssh
-domains = salad.local
+domains = salad.com
 
-[domain/salad.local]
+[domain/salad.com]
 id_provider = ldap
 auth_provider = ldap
-ldap_uri = ldap://ldap.salad.local
-ldap_search_base = dc=salad,dc=local
-ldap_user_search_base = ou=people,dc=salad,dc=local
-ldap_group_search_base = ou=groups,dc=salad,dc=local
+ldap_uri = ldap://ldap.salad.com
+ldap_search_base = dc=salad,dc=com
+ldap_user_search_base = ou=people,dc=salad,dc=com
+ldap_group_search_base = ou=groups,dc=salad,dc=com
 ```
 
 ### 5.2. SSH Access Groups
@@ -363,10 +363,10 @@ For each project:
 
 ## 7. Implementation Checklist
 
-### 7.1. LDAP Setup (ldap.salad.local)
+### 7.1. LDAP Setup (ldap.salad.com)
 
 - [ ] Install OpenLDAP and LAM
-- [ ] Configure base DN: `dc=salad,dc=local`
+- [ ] Configure base DN: `dc=salad,dc=com`
 - [ ] Create organizational units:
   - [ ] `ou=people` with team sub-OUs
   - [ ] `ou=groups` with service-access, ssh-access, gitlab-access sub-OUs
@@ -379,7 +379,7 @@ For each project:
 - [ ] Assign users to appropriate groups
 - [ ] Test LDAP queries with `ldapsearch`
 
-### 7.2. Keycloak Setup (sso.salad.local)
+### 7.2. Keycloak Setup (sso.salad.com)
 
 - [ ] Install and configure Keycloak
 - [ ] Create `salad` realm
@@ -490,20 +490,20 @@ For each VM:
 **Problem**: Cannot connect to LDAP
 ```bash
 # Test LDAP connectivity
-ldapsearch -x -H ldap://ldap.salad.local -b "dc=salad,dc=local"
+ldapsearch -x -H ldap://ldap.salad.com -b "dc=salad,dc=com"
 
 # Check LDAP service
-ssh ldap.salad.local
+ssh ldap.salad.com
 systemctl status slapd
 ```
 
 **Problem**: User not found in LDAP
 ```bash
 # Search for specific user
-ldapsearch -x -H ldap://ldap.salad.local -b "dc=salad,dc=local" "(uid=alice.dev)"
+ldapsearch -x -H ldap://ldap.salad.com -b "dc=salad,dc=com" "(uid=alice.dev)"
 
 # Check user's DN
-ldapsearch -x -H ldap://ldap.salad.local -b "ou=people,dc=salad,dc=local" "(uid=alice.dev)" dn
+ldapsearch -x -H ldap://ldap.salad.com -b "ou=people,dc=salad,dc=com" "(uid=alice.dev)" dn
 ```
 
 ### 8.2. Keycloak Issues
