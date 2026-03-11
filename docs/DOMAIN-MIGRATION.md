@@ -467,8 +467,8 @@ No domain-specific configuration inside PostgreSQL itself. It listens on IP addr
 Any deployed app with Traefik routing labels must update:
 
 ```diff
--        - "traefik.http.routers.demo-api.rule=Host(`demo-api.app.salad.local`)"
-+        - "traefik.http.routers.demo-api.rule=Host(`demo-api.app.salad.com`)"
+-        - "traefik.http.routers.demo.rule=Host(`demo.app.salad.local`)"
++        - "traefik.http.routers.demo.rule=Host(`demo.app.salad.com`)"
 ```
 
 ### SSSD (if configured for SSH LDAP auth)

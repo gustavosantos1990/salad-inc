@@ -205,30 +205,30 @@ cd /opt/stacks/traefik
 ```
 
 Create `traefik.yml`:
+
 ```yaml
 version: '3.8'
 
 services:
   traefik:
-    image: traefik:v2.10
+    image: traefik:v2.11       # v2.11 negotiates Docker API version correctly with Engine 26+
     command:
-      - "--providers.docker=true"
       - "--providers.docker.swarmMode=true"
-      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.docker.network=traefik-public"
       - "--entrypoints.web.address=:80"
-      # Nginx terminates SSL, so Traefik just listens on HTTP
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
     ports:
-      - "80:80"
-      - "8080:8080" # Dashboard (internal access)
+      - "8090:80"    # Nginx forwards *.app.salad.com → containerization:8090
+      - "8080:8080"  # Dashboard — Nginx forwards traefik.salad.com → containerization:8080
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - traefik-public
     deploy:
-      mode: global
       placement:
-        constraints:
-          - node.role == manager
+        constraints: [node.role == manager]
 
 networks:
   traefik-public:
@@ -255,7 +255,7 @@ version: '3.2'
 
 services:
   agent:
-    image: portainer/agent:2.19.4
+    image: portainer/agent:2.21.4
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/lib/docker/volumes:/var/lib/docker/volumes
@@ -267,7 +267,7 @@ services:
         constraints: [node.platform.os == linux]
 
   portainer:
-    image: portainer/portainer-ce:2.19.4
+    image: portainer/portainer-ce:2.21.4
     command: -H tcp://tasks.agent:9001 --tlsskipverify
     volumes:
       - portainer_data:/data
@@ -384,6 +384,19 @@ server {
 From your host machine:
 
 1.  **Ping**: `ping -c 2 containerization.salad.com` (Should return 192.168.123.22).
-2.  **Access Portainer**: Open `https://portainer.salad.com`.
-    *   Create the admin user.
-    *   Connect to the "local" environment (via Agent).
+2.  **Confirm services are running**:
+    ```bash
+    docker stack services portainer
+    # portainer_agent       global       1/1   portainer/agent:2.21.4
+    # portainer_portainer   replicated   1/1   portainer/portainer-ce:2.21.4
+    ```
+3.  **Connect Portainer to the Docker Swarm**: Open `https://portainer.salad.com`.
+    - Create the admin user and log in.
+    - The setup wizard will prompt you to add an environment. Choose:
+      - **Environment type:** Docker Swarm
+      - **Connection method:** Agent
+      - **Name:** `salad-swarm` (or any label)
+      - **Environment Address:** `tasks.portainer_agent:9001`
+    - Click **Connect**. Portainer will reach the agent over the `agent_network` overlay, discover all Swarm nodes, and display the cluster dashboard.
+
+> **Version note:** Portainer agent `2.21.4`+ is required for Docker Engine 26+. Versions ≤ 2.19.x use a Docker SDK that only speaks API 1.42, which is below the minimum (1.44) enforced by Docker Engine 26+. Always keep Portainer in sync with your Docker Engine version.

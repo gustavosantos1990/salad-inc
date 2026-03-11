@@ -1,4 +1,6 @@
-# 13 - Deploying a Java/Spring Boot Application
+# 13 - Deploying a Java/Spring Boot Application (Manual)
+
+> **Automated CI/CD available:** For a fully automated pipeline (build → test → scan → deploy on every `git push`), see **[15 — CI/CD Pipeline Setup](./15-cicd-setup.md)**. This guide covers the manual process for reference and local development.
 
 This guide covers how to package a Java/Spring Boot REST API as a Docker image and deploy it to the **containerization VM** (`containerization.salad.com`) using Docker Swarm, with Traefik handling internal routing and Nginx providing SSL termination.
 
@@ -6,9 +8,9 @@ This guide covers how to package a Java/Spring Boot REST API as a Docker image a
 
 ```
 User Browser
-    ↓ https://demo-api.app.salad.com
-Nginx (proxy.salad.com:443)     ← SSL termination, wildcard *.app.salad.com
-    ↓ http://containerization.salad.com:80
+    ↓ https://demo.app.salad.com
+Nginx (proxy.salad.com:443)       ← SSL termination, wildcard *.app.salad.com
+    ↓ http://containerization.salad.com:8090
 Traefik (containerization.salad.com)  ← routes by Host header
     ↓ http://container:8080
 Spring Boot App (Docker Swarm container)
@@ -77,7 +79,7 @@ In `src/main/resources/application.properties`:
 
 ```properties
 server.port=8080
-spring.application.name=demo-api
+spring.application.name=demo
 
 # Actuator health endpoint (used by Traefik for health checks)
 management.endpoints.web.exposure.include=health,info
@@ -93,27 +95,29 @@ management.endpoint.health.show-details=always
 From the project root on your **host machine** or the **containerization VM**:
 
 ```bash
-docker build -t demo-api:1.0.0 .
+docker build -t demo:1.0.0 .
+
+> **Note:** The multi-stage Dockerfile uses `maven:3.9.13-eclipse-temurin-25` as the builder and `eclipse-temurin:25-jre-alpine` as the runtime — Java 25 LTS. See the Dockerfile in the project root.
 ```
 
-### 4.2. Tag and Push to Artifactory
+### 4.2. Tag and Push to Nexus
 
-Artifactory acts as our Docker registry at `artifact-repository.salad.com`.
+Nexus acts as our Docker registry. Push goes through `registry-push.salad.com` (hosted repo) and pulls come from `registry.salad.com` (group repo, which also proxies Docker Hub).
 
-Log in to the registry:
+Log in to the push registry:
 ```bash
-docker login artifact-repository.salad.com:8083
+docker login registry-push.salad.com
 ```
-*Use your Artifactory credentials (admin or dedicated CI user).*
+*Use your Nexus credentials (`gitlab-ci` user or admin).*
 
 Tag the image:
 ```bash
-docker tag demo-api:1.0.0 artifact-repository.salad.com:8083/docker-local/demo-api:1.0.0
+docker tag demo:1.0.0 registry-push.salad.com/demo:1.0.0
 ```
 
 Push:
 ```bash
-docker push artifact-repository.salad.com:8083/docker-local/demo-api:1.0.0
+docker push registry-push.salad.com/demo:1.0.0
 ```
 
 ---
@@ -128,8 +132,8 @@ The **Traefik labels** on the service are the key — they tell Traefik what hos
 version: '3.8'
 
 services:
-  demo-api:
-    image: artifact-repository.salad.com:8083/docker-local/demo-api:1.0.0
+  demo:
+    image: registry.salad.com/demo:1.0.0
     networks:
       - traefik-public
     deploy:
@@ -141,18 +145,18 @@ services:
         - "traefik.enable=true"
 
         # Router: match requests by hostname
-        # Change 'demo-api' to your app name, keep the .app.salad.com suffix
-        - "traefik.http.routers.demo-api.rule=Host(`demo-api.app.salad.com`)"
+        # Change 'demo' to your app name, keep the .app.salad.com suffix
+        - "traefik.http.routers.demo.rule=Host(`demo.app.salad.com`)"
 
         # Entrypoint: Traefik listens on 'web' (port 80, HTTP from Nginx)
-        - "traefik.http.routers.demo-api.entrypoints=web"
+        - "traefik.http.routers.demo.entrypoints=web"
 
         # Service: tell Traefik which port your app listens on
-        - "traefik.http.services.demo-api.loadbalancer.server.port=8080"
+        - "traefik.http.services.demo.loadbalancer.server.port=8080"
 
         # Optional: health check path (Spring Boot Actuator)
-        - "traefik.http.services.demo-api.loadbalancer.healthcheck.path=/actuator/health"
-        - "traefik.http.services.demo-api.loadbalancer.healthcheck.interval=10s"
+        - "traefik.http.services.demo.loadbalancer.healthcheck.path=/actuator/health"
+        - "traefik.http.services.demo.loadbalancer.healthcheck.interval=10s"
 
 networks:
   traefik-public:
@@ -173,23 +177,23 @@ ssh root@containerization.salad.com
 
 Pull the image (ensures the latest version is available):
 ```bash
-docker pull artifact-repository.salad.com:8083/docker-local/demo-api:1.0.0
+docker pull registry.salad.com/demo:1.0.0
 ```
 
 Deploy the stack:
 ```bash
-docker stack deploy -c swarm-stack.yml demo-api
+docker stack deploy -c swarm-stack.yml demo
 ```
 
 Check that the service is running:
 ```bash
-docker stack services demo-api
+docker stack services demo
 ```
 
 Expected output:
 ```
 ID             NAME               MODE         REPLICAS   IMAGE
-xxxxxxxxxxxx   demo-api_demo-api  replicated   1/1        artifact-repository.salad.com:8083/docker-local/demo-api:1.0.0
+xxxxxxxxxxxx   demo_demo  replicated   1/1        registry.salad.com/demo:1.0.0
 ```
 
 `1/1` means 1 replica is running out of 1 desired.
@@ -202,19 +206,19 @@ xxxxxxxxxxxx   demo-api_demo-api  replicated   1/1        artifact-repository.sa
 
 Traefik's dashboard is available at `https://traefik.salad.com`:
 
-1. Go to **HTTP → Routers** — you should see `demo-api` listed.
-2. Go to **HTTP → Services** — you should see `demo-api` with a healthy backend.
+1. Go to **HTTP → Routers** — you should see `demo` listed.
+2. Go to **HTTP → Services** — you should see `demo` with a healthy backend.
 
 Or query the Traefik API directly from the containerization VM:
 ```bash
-curl -s http://localhost:8080/api/http/routers | python3 -m json.tool | grep demo-api
+curl -s http://localhost:8080/api/http/routers | python3 -m json.tool | grep demo
 ```
 
 ### 7.2. Test the Application
 
 From your host machine:
 ```bash
-curl -k https://demo-api.app.salad.com/actuator/health
+curl -k https://demo.app.salad.com/actuator/health
 ```
 
 Expected:
@@ -224,13 +228,13 @@ Expected:
 
 Without the `-k` flag (if the SSL certificate is trusted system-wide):
 ```bash
-curl https://demo-api.app.salad.com/actuator/health
+curl https://demo.app.salad.com/actuator/health
 ```
 
 ### 7.3. Check Container Logs
 
 ```bash
-docker service logs demo-api_demo-api --follow
+docker service logs demo_demo --follow
 ```
 
 ---
@@ -241,15 +245,15 @@ To deploy a new version:
 
 ```bash
 # Build and push the new image
-docker build -t demo-api:1.0.1 .
-docker tag demo-api:1.0.1 artifact-repository.salad.com:8083/docker-local/demo-api:1.0.1
-docker push artifact-repository.salad.com:8083/docker-local/demo-api:1.0.1
+docker build -t demo:1.0.1 .
+docker tag demo:1.0.1 registry-push.salad.com/demo:1.0.1
+docker push registry-push.salad.com/demo:1.0.1
 ```
 
 Update the stack file image tag and redeploy:
 ```bash
 # On containerization VM:
-docker stack deploy -c swarm-stack.yml demo-api
+docker stack deploy -c swarm-stack.yml demo
 ```
 
 Swarm performs a **rolling update** — the old container stays up until the new one is healthy.
@@ -260,7 +264,7 @@ Swarm performs a **rolling update** — the old container stays up until the new
 
 Each new app just needs:
 1. A **unique subdomain** under `*.app.salad.com` (e.g. `billing-api.app.salad.com`)
-2. A **unique Traefik router name** in the labels (e.g. `demo-api` → `billing-api`)
+2. A **unique Traefik router name** in the labels (e.g. `demo` → `billing-api`)
 3. Its own **stack file**
 
 No DNS changes, no Nginx changes, no Traefik config changes — Traefik discovers new services automatically via Docker labels.
@@ -282,7 +286,7 @@ deploy:
 
 ### Container won't start
 ```bash
-docker service ps demo-api_demo-api --no-trunc
+docker service ps demo_demo --no-trunc
 ```
 Look for the error in the `ERROR` column.
 
@@ -292,7 +296,7 @@ Look for the error in the `ERROR` column.
 docker service ls | grep traefik
 
 # Is the app's service running?
-docker stack services demo-api
+docker stack services demo
 
 # Can Traefik reach the container?
 docker service logs traefik_traefik | tail -20
@@ -301,11 +305,11 @@ docker service logs traefik_traefik | tail -20
 ### Traefik shows the route but returns 503
 The container is registered but failing health checks. Check app logs:
 ```bash
-docker service logs demo-api_demo-api
+docker service logs demo_demo
 ```
 
 ### Image pull fails (registry auth)
 ```bash
-# Log in to Artifactory on the containerization VM
-docker login artifact-repository.salad.com:8083
+# Log in to Nexus on the containerization VM
+docker login registry.salad.com
 ```

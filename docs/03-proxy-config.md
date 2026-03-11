@@ -481,6 +481,8 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
     }
 
     # Wildcard for dynamic applications (Traefik)
+    # Traefik publishes port 8090:80 — Nginx forwards here and passes Host header
+    # so Traefik can match the correct service router rule.
     server {
         listen 80;
         server_name *.app.salad.com;
@@ -495,17 +497,14 @@ Once you have finished `setup-alpine` and rebooted, log in as root and run these
         ssl_certificate_key /etc/nginx/ssl/salad.com.key;
 
         location / {
-            set $backend_traefik containerization.salad.com:80;
-            proxy_pass http://$backend_traefik;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            
-            # WebSocket support
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
+            set $upstream http://containerization.salad.com:8090;
+            proxy_pass         $upstream;
+            proxy_set_header   Host              $host;     # Traefik routes by this header
+            proxy_set_header   X-Real-IP         $remote_addr;
+            proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+            proxy_read_timeout    60s;
+            proxy_connect_timeout 10s;
         }
     }
     EOF
