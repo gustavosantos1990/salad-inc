@@ -549,10 +549,10 @@ stages:
 # ─── Variables (projects override as needed) ──────────────────────────────────
 variables:
   # -Xmx2g prevents the Linux OOM Killer from terminating Maven during heavy OWASP syncs
-  MAVEN_OPTS: "-Xmx2g -Dmaven.repo.local=$CI_PROJECT_DIR/.m2"
-  SONAR_HOST_URL: "https://sonarqube.salad.com"
+  MAVEN_OPTS: "-Xmx2g -Dmaven.repo.local=$CI_PROJECT_DIR/.m2 -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -Dmaven.wagon.http.ssl.ignore.validity.dates=true"
   DOCKER_REGISTRY_PUSH: "registry-push.salad.com"
   DOCKER_REGISTRY_PULL: "registry.salad.com"
+  GIT_SSL_NO_VERIFY: "true"
 
 # ─── Stage 1: governance ──────────────────────────────────────────────────────
 # Runs first on every pipeline — produces an audit trail showing exactly
@@ -642,11 +642,7 @@ trivy:
     TRIVY_AUTH_URL: "https://registry-push.salad.com"
     TRIVY_CACHE_DIR: "$CI_PROJECT_DIR/.trivy-cache"
   script:
-    - trivy image
-        --exit-code 1
-        --severity CRITICAL
-        --no-progress
-        registry.salad.com/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA
+    - trivy image --exit-code 1 --severity CRITICAL --no-progress --insecure --timeout 15m --image-src remote registry.salad.com/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA
   cache:
     key: trivy-db
     paths:
@@ -691,7 +687,7 @@ Create `.mvn/settings.xml` in the project root. This routes all Maven dependency
     <mirror>
       <id>nexus</id>
       <mirrorOf>*</mirrorOf>
-      <url>http://artifact-repository.salad.com:8081/repository/maven-group/</url>
+      <url>https://nexus.salad.com/repository/maven-group/</url>
     </mirror>
   </mirrors>
 </settings>
@@ -720,6 +716,7 @@ services:
         parallelism: 1
         delay: 10s
         failure_action: rollback
+        order: start-first
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.demo.rule=Host(`demo.app.salad.com`)"
@@ -816,7 +813,7 @@ In GitLab, go to your project → **Settings** → **CI/CD** → **Variables** a
 |---|---|---|---|
 | `NEXUS_CI_PASSWORD` | nexus `gitlab-ci` user password | ✅ | ✅ |
 | `SONAR_TOKEN` | token generated in step 3.6 | ✅ | ✅ |
-| `SONAR_HOST_URL` | `https://sonarqube.salad.com` | ❌ | ❌ |
+| `SONAR_HOST_URL` | `http://192.168.123.22:9001` | ❌ | ❌ |
 | `SONAR_PROJECT_KEY` | `demo` | ❌ | ❌ |
 
 > **Protected variables** are only available to pipelines running on protected branches (like `main`). **Masked variables** are redacted from job logs so credentials don't appear in output.
@@ -1092,9 +1089,9 @@ To support front-end development, we have introduced a dedicated CI template spe
 The template is located in `salad/ci-templates/global-react-web-app.yml`. Its structure is similar to the Java template, but tailored for a Node ecosystem:
 
 - **Stage 1 (governance):** Uses the `salad-ci-tools` to print commit metadata and repository tree.
-- **Stage 2 (unit-test):** Uses `node:20` to run `npm ci` and `npm test -- --coverage`. This generates a coverage report used in the quality stage. It also caches `~/.npm`.
-- **Stage 3 (quality):** Uses `sonarsource/sonar-scanner-cli:5` instead of Maven to run the SonarQube analysis since there is no `pom.xml`. It consumes the `coverage/lcov.info` generated in unit-test.
-- **Stage 4 (security):** Uses `npm audit` on `node:20` to block critical supply-chain injection vulnerabilities in third-party libraries.
+- **Stage 2 (unit-test):** Uses `node:20` and explicitly authenticates via `NPM_AUTH_TOKEN` to run `npm ci` and `npm test -- --coverage`. This generates a coverage report used in the quality stage. It also caches `~/.npm`.
+- **Stage 3 (quality):** Uses `node:20` and globally installs `sonarqube-scanner` via npm to run the SonarQube analysis (bypassing Alpine/musl bugs found in the official docker image). It consumes the `coverage/lcov.info` generated in unit-test.
+- **Stage 4 (security):** Uses `npm audit` on `node:20` to block critical supply-chain injection vulnerabilities in third-party libraries. Because Sonatype Nexus OSS lacks the "IQ Server" required to proxy auditor endpoints, the execution natively overrides the repository internally via `--registry=https://registry.npmjs.org/` to avoid `400 Bad Request` drops.
 - **Stage 5 & 6 (build & post-build):** Builds the Docker image normally, scanning its final layers with Trivy.
 
 #### Using it in a project:
@@ -1120,8 +1117,8 @@ To ensure robust and proxied installs, React projects must point to our internal
 2. **Project setup (`.npmrc`):**
 Projects must define this in their root folder to route `npm ci` through Nexus:
 ```ini
-registry=http://artifact-repository.salad.com:8081/repository/npm-group/
-//artifact-repository.salad.com:8081/repository/npm-group/:_auth=${NPM_AUTH_TOKEN}
+registry=https://nexus.salad.com/repository/npm-group/
+//nexus.salad.com/repository/npm-group/:_auth=${NPM_AUTH_TOKEN}
 ```
 
 ### 12.3 Containerization Decision: Nginx vs. Apache
@@ -1144,6 +1141,8 @@ RUN npm run build
 
 # Stage 2: Serve via Nginx
 FROM nginx:alpine
+# Patch OS vulnerabilities (e.g. zlib CVE-2026-22184)
+RUN apk update && apk upgrade --no-cache
 RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
@@ -1156,4 +1155,29 @@ The resulting `nginx:alpine` container is deployed to the Swarm using Traefik la
         - "traefik.enable=true"
         - "traefik.http.routers.appname.rule=Host(`appname.app.salad.com`)"
         - "traefik.http.services.appname.loadbalancer.server.port=80"
+```
+
+### 12.4 Vite 8 Minification in CI
+
+Vite 8 introduces a new default minifier (`oxc`) replacing `esbuild`. While `oxc` offers performance improvements locally, its native binary currently fails to execute correctly inside the `node:20` Debian container used during our CI pipeline (`maven:3.9.13-eclipse-temurin-25` or `node:20`), causing the fallback build execution to ship **unminified** JavaScript to production in `nginx:alpine` artifacts.
+
+To fix this, React web applications must explicitly override the `minify` configuration to use the more stable `esbuild` alternative in CI environments.
+
+1. Install `esbuild` as a `devDependency` to satisfy Vite's experimental peer dependencies:
+```bash
+npm install -D esbuild@^0.27.0
+```
+
+2. Explicitly override the default minifier in `vite.config.js`:
+```javascript
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    // Override default oxc minifier which fails silently in CI container
+    minify: 'esbuild',
+  },
+  test: {
+    environment: 'jsdom',
+  },
+})
 ```

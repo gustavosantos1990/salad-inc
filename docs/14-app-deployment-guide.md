@@ -18,6 +18,15 @@ Spring Boot App (Docker Swarm container)
 
 **DNS resolution:** `*.app.salad.com` → `192.168.123.30` (Nginx) is already configured in dnsmasq. No DNS change is needed for new apps — just pick a unique subdomain.
 
+### API Gateway Pattern & CORS Resolution
+
+To natively resolve CORS issues between frontend and backend applications, we employ an **API Gateway pattern** at the Traefik layer. 
+
+By serving both the frontend (`/`) and the backend (`/api`) under the **exact same domain** (e.g., `demo.app.salad.com`), the browser treats all requests as Same-Origin, completely bypassing the need for complex CORS configurations in Spring Boot or React.
+
+*   **Nginx (Edge):** Remains a simple reverse proxy passing all `*.app.salad.com` traffic to Traefik.
+*   **Traefik (Ingress):** Dynamically uses Swarm labels to route `/api` traffic to the backend services (while stripping the `/api` prefix), and falls back to routing all other traffic (`/`) on that domain to the frontend.
+
 ---
 
 ## 1. Project Structure
@@ -164,6 +173,35 @@ networks:
 ```
 
 > **Important:** Traefik labels must be under `deploy.labels` in Swarm mode, not under `labels` at the service level. Labels at the service level are ignored by Traefik in Swarm mode.
+
+### 5.1 API Routing (Backend) vs Frontend Routing
+
+When deploying a backend API that works alongside a frontend, use the **PathPrefix** rule and a **StripPrefix** middleware so that it serves requests on the same domain without actually requiring your Spring app controllers to map to `/api`.
+
+**Backend Service Labels (e.g., Spring Boot):**
+```yaml
+      labels:
+        - "traefik.enable=true"
+        # Match the shared domain AND the /api path
+        - "traefik.http.routers.demo.rule=Host(`demo.app.salad.com`) && PathPrefix(`/api`)"
+        - "traefik.http.routers.demo.entrypoints=web"
+        
+        # Strip the /api prefix before it reaches Spring Boot
+        - "traefik.http.middlewares.demo-strip-api.stripprefix.prefixes=/api"
+        - "traefik.http.routers.demo.middlewares=demo-strip-api"
+        
+        - "traefik.http.services.demo.loadbalancer.server.port=8080"
+```
+
+**Frontend Service Labels (e.g., React):**
+```yaml
+      labels:
+        - "traefik.enable=true"
+        # Match the shared domain (catch-all for the UI)
+        - "traefik.http.routers.demo-react.rule=Host(`demo.app.salad.com`)"
+        - "traefik.http.routers.demo-react.entrypoints=web"
+        - "traefik.http.services.demo-react.loadbalancer.server.port=80"
+```
 
 ---
 

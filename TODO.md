@@ -32,3 +32,6 @@
 - check variables existing at swarm-stack.yml and group CI/CD variables (SONAR_HOST_URL)
 - fix hardcoded ip at templates (http://containerization.salad.com:9001 to http://192.168.123.22:9001)
 - make sure that failed/rolled back deployments don't delete the existing stack/replicas
+- use salad.internal domain for internal services or at least for the dynamic applications
+- define and update repos naming conventions (service, webapp, lib, batch, etc)
+- enable temporary testing deployments (i.e, demo.testapp.salad.com), could also be used for canary deployments or pipe testing
