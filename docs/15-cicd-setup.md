@@ -53,9 +53,11 @@ All development happens in short-lived feature branches off `main`. A Merge Requ
 
 ---
 
-## 1. Expand Containerization VM RAM (2 GB → 4 GB)
+## 1. Expand Containerization VM RAM & vCPUs (2 GB → 6 GB)
 
-SonarQube requires approximately 3 GB of RAM on its own (Elasticsearch embedded inside SonarQube is the heavyweight). With the existing workloads on `containerization` (Traefik, Portainer, pgAdmin, application containers) and the upcoming GitLab Runner, the VM needs to grow from 2 GB to 4 GB before anything else is deployed.
+SonarQube requires approximately 3 GB of RAM on its own. Furthermore, the OWASP Dependency-Check plugin (the CVE database download phase specifically) requires large amounts of memory to parse the 337k+ JSON records into its embedded H2 database. 
+
+With the existing workloads on `containerization` (Traefik, Portainer, pgAdmin, application containers) and the upcoming GitLab Runner, the VM needs to grow its resources—we recommend **4 vCPUs** and **6 GB RAM** (6144 MB) before pipeline execution begins to prevent the Linux OOM Killer from terminating Maven.
 
 > **Why not a separate VM?** SonarQube is an internal quality tool — it does not serve end-user traffic. Running it as a Swarm stack alongside other internal tooling is consistent with how Portainer and pgAdmin are already deployed on this VM, and avoids provisioning yet another QEMU VM on already limited host resources.
 
@@ -67,26 +69,30 @@ On the host machine:
 virsh dominfo containerization | grep -i memory
 ```
 
-Expected: `Max memory: 2097152 kB` (2 GB).
+### 1.2 Increase max and current memory / vCPUs
 
-### 1.2 Increase max and current memory
+You must gracefully stop the VM to modify vCPUs safely:
 
 ```bash
-# Set the new maximum (in kibibytes: 4 GB = 4194304 KiB)
-virsh setmaxmem containerization 4194304 --config
+# 1. Gracefully shut down
+sudo virsh shutdown containerization
 
-# Set the live memory (VM must be running)
-virsh setmem containerization 4194304 --live --config
+# 2. Set the new memory (in kibibytes: 6 GB = 6291456 KiB, or simplify with 6G syntax in newer virsh)
+sudo virsh setmaxmem containerization 6G --config
+sudo virsh setmem containerization 6G --config
+
+# 3. Increase vCPUs
+sudo virsh setvcpus containerization 4 --maximum --config
+sudo virsh setvcpus containerization 4 --config
+
+# 4. Start the VM
+sudo virsh start containerization
 ```
-
-`--config` persists the change across reboots. `--live` applies it immediately without a restart.
 
 ### 1.3 Verify
 
 ```bash
-virsh dominfo containerization | grep -i memory
-# Max memory:     4194304 kB
-# Used memory:    4194304 kB
+virsh dominfo containerization | grep -E "(memory|CPU)"
 ```
 
 Inside the VM:
@@ -542,7 +548,8 @@ stages:
 
 # ─── Variables (projects override as needed) ──────────────────────────────────
 variables:
-  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2"
+  # -Xmx2g prevents the Linux OOM Killer from terminating Maven during heavy OWASP syncs
+  MAVEN_OPTS: "-Xmx2g -Dmaven.repo.local=$CI_PROJECT_DIR/.m2"
   SONAR_HOST_URL: "https://sonarqube.salad.com"
   DOCKER_REGISTRY_PUSH: "registry-push.salad.com"
   DOCKER_REGISTRY_PULL: "registry.salad.com"
@@ -579,9 +586,9 @@ unit-test:
     paths:
       - .m2/
 
-# ─── Stage 3: sonar ───────────────────────────────────────────────────────────
+# ─── Stage 3: quality ───────────────────────────────────────────────────────────
 sonar:
-  stage: sonar
+  stage: quality
   image: maven:3.9.13-eclipse-temurin-25
   dependencies:
     # Pull the test report artifacts from the unit-test job
@@ -589,12 +596,11 @@ sonar:
   script:
     # sonar.qualitygate.wait=true makes Maven poll SonarQube until analysis
     # is complete, then fail the job if the Quality Gate says "Error".
-    - mvn sonar:sonar
-        -s .mvn/settings.xml
-        -Dsonar.host.url=$SONAR_HOST_URL
-        -Dsonar.token=$SONAR_TOKEN
-        -Dsonar.projectKey=$SONAR_PROJECT_KEY
-        -Dsonar.qualitygate.wait=true
+    #
+    # IMPORTANT: Do not format long commands across multiple lines via indentation
+    # in GitLab YAML. GitLab's parser will feed arguments trailing spaces, causing
+    # Maven to fail parsing properties. Use a single flattened line.
+    - mvn sonar:sonar -s .mvn/settings.xml -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN -Dsonar.projectKey=$SONAR_PROJECT_KEY -Dsonar.qualitygate.wait=true
   cache:
     key: "$CI_PROJECT_PATH-maven"
     paths:
@@ -610,11 +616,7 @@ owasp:
   stage: security
   image: maven:3.9.13-eclipse-temurin-25
   script:
-    - mvn org.owasp:dependency-check-maven:check
-        -s .mvn/settings.xml
-        -DfailBuildOnCVSS=9
-        -DsuppressionFile=dependency-check-suppressions.xml
-        --no-transfer-progress
+    - mvn org.owasp:dependency-check-maven:check -s .mvn/settings.xml -DfailBuildOnCVSS=9 -DsuppressionFile=dependency-check-suppressions.xml --no-transfer-progress
   artifacts:
     when: always   # Archive the report even when the job fails
     paths:
@@ -1000,6 +1002,30 @@ curl -sk -u gitlab-ci:<password> \
 docker pull registry.salad.com/demo:latest
 ```
 
+### Docker build fails — "parent snapshot does not exist"
+
+If the `containerization` VM is abruptly restarted while Docker is active, the BuildKit layers can become orphaned/corrupted. When the pipeline runs a multi-stage build, the `COPY --from=builder` step will fail stating the parent snapshot does not exist.
+
+To fix it, SSH into the runner VM and clear the corrupted builder cache:
+```bash
+docker builder prune -a -f
+```
+Then safely retry the GitLab job.
+
+### Job gets "Killed" abruptly during maven-dependency-check
+
+If the OWASP `check` goal logs `Killed`, it means the Linux OOM Killer terminated Maven because it ran out of RAM when trying to import the 337k+ CVE records into the H2 database.
+
+Ensure your `MAVEN_OPTS` variable includes `-Xmx2g` to give the JVM enough heap overhead.
+
+### Cache Not Found (Downloading OWASP DB on a new project)
+
+GitLab CI caches are **strictly scoped to the project path**. 
+When you create a brand new repo (e.g., `salad/project-manager`) that inherits `global.yml`, it cannot use the cached `owasp-data` zip file from your `salad/demo` project, even if the cache keys match.
+
+The first run on a new project will *always* trigger the mass "337k records" initial wait penalty.
+*Workaround:* SSH to the Runner VM and manually copy the ZIP files horizontally inside `/var/lib/docker/volumes/` from the older project's cache path to the newer project's cache path before the first pipeline executes.
+
 ---
 
 ## 11. k3s Migration Guide
@@ -1054,3 +1080,80 @@ Total: approximately **3–4 days** of focused work for the current infrastructu
 ### Migration is NOT urgent
 
 The Swarm pipeline we have now will handle the current workload well. The deploy stage in `.gitlab-ci.yml` is intentionally isolated to make swapping `docker stack deploy` for `kubectl apply` a one-section change when the time comes.
+
+---
+
+## 12. React Web Application CI/CD Pipeline
+
+To support front-end development, we have introduced a dedicated CI template specifically for React/npm web applications.
+
+### 12.1 The React CI Template (`global-react-web-app.yml`)
+
+The template is located in `salad/ci-templates/global-react-web-app.yml`. Its structure is similar to the Java template, but tailored for a Node ecosystem:
+
+- **Stage 1 (governance):** Uses the `salad-ci-tools` to print commit metadata and repository tree.
+- **Stage 2 (unit-test):** Uses `node:20` to run `npm ci` and `npm test -- --coverage`. This generates a coverage report used in the quality stage. It also caches `~/.npm`.
+- **Stage 3 (quality):** Uses `sonarsource/sonar-scanner-cli:5` instead of Maven to run the SonarQube analysis since there is no `pom.xml`. It consumes the `coverage/lcov.info` generated in unit-test.
+- **Stage 4 (security):** Uses `npm audit` on `node:20` to block critical supply-chain injection vulnerabilities in third-party libraries.
+- **Stage 5 & 6 (build & post-build):** Builds the Docker image normally, scanning its final layers with Trivy.
+
+#### Using it in a project:
+
+Include it in your `.gitlab-ci.yml`:
+
+```yaml
+include:
+  - project: 'salad/ci-templates'
+    ref: master
+    file: '/global-react-web-app.yml'
+```
+
+### 12.2 Nexus Configuration for npm
+
+To ensure robust and proxied installs, React projects must point to our internal Nexus repository:
+
+1. **Nexus setup (Admin required):**
+   - Create a proxy repository `npm-proxy` pointing to `https://registry.npmjs.org/`.
+   - Create a hosted repository `npm-hosted` for internal packages (if any).
+   - Create a group repository `npm-group` bridging both.
+
+2. **Project setup (`.npmrc`):**
+Projects must define this in their root folder to route `npm ci` through Nexus:
+```ini
+registry=http://artifact-repository.salad.com:8081/repository/npm-group/
+//artifact-repository.salad.com:8081/repository/npm-group/:_auth=${NPM_AUTH_TOKEN}
+```
+
+### 12.3 Containerization Decision: Nginx vs. Apache
+
+React applications (Vite, Create React App) compile to static HTML, JS, and CSS files. Thus, they don't *run* inside Node.js in production but are merely *served* over HTTP.
+
+We have adopted **Nginx (`nginx:alpine`)** over Apache for our React runtime container. 
+- **Lightweight:** An Alpine-based Nginx container frequently uses less than 20MB of RAM and takes up ~15MB of disk space.
+- **Event-driven architecture:** Excels at serving static assets with minimal overhead compared to Apache's process/thread-based model.
+- **Standardized Multi-Stage Build:**
+Our Dockerfiles follow a predictable pattern:
+```dockerfile
+# Stage 1: Build React App
+FROM node:20 AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Stage 2: Serve via Nginx
+FROM nginx:alpine
+RUN rm -rf /usr/share/nginx/html/*
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 80
+ENTRYPOINT ["nginx", "-g", "daemon off;"]
+```
+
+The resulting `nginx:alpine` container is deployed to the Swarm using Traefik labels, identical to Java applications:
+```yaml
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.appname.rule=Host(`appname.app.salad.com`)"
+        - "traefik.http.services.appname.loadbalancer.server.port=80"
+```
